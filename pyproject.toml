@@ -44,17 +44,17 @@ dependencies = []
 # reasoning every project downstream of it already applies to its own GUI extra.
 qt = ["PySide6-Essentials>=6.7"]
 mpl = ["matplotlib>=3.8"]
-# `markdown` only for the HTML prerender path, which exists for Qt versions
-# predating QTextBrowser.setMarkdown. The mathtext renderer needs matplotlib,
-# not this.
-docs = ["markdown>=3.5"]
+# Rendering documentation needs matplotlib for the equations and nothing else:
+# the markdown subset Qt actually renders is small enough that a full CommonMark
+# implementation would mostly be output this cannot use, and the conversion has
+# to interleave with math extraction anyway.
+docs = ["matplotlib>=3.8"]
 testing = ["pytest>=7"]
 dev = [
     "pytest>=7",
     "pytest-qt>=4.5",
     "PySide6-Essentials>=6.7",
     "matplotlib>=3.8",
-    "markdown>=3.5",
     "ruff>=0.16",
 ]
 
