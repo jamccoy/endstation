@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{ project_slug }}"
+version = "0.1.0"
+description = "{{ description }}"
+readme = "README.md"
+requires-python = ">={{ python_requires }}"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "{{ author }}" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: {{ python_requires }}",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "endstation>=0.1",
+]
+
+[project.optional-dependencies]
+{%- if gui %}
+# The Qt front-end only. Deliberately not a core dependency: the analysis, the
+# exporters and the CLI should never require a GUI toolkit.
+#
+# PySide6 (LGPLv3) rather than PyQt5/PyQt6 (GPL). This package is BSD-3, and an
+# optional, dynamically-linked LGPL dependency keeps it that way.
+#
+# PySide6-Essentials rather than the PySide6 meta-package: the Addons
+# (WebEngine, Multimedia, 3D) are hundreds of megabytes this window never
+# touches. Essentials still carries QtSvg, which matplotlib's Qt shim imports
+# unconditionally.
+gui = ["endstation[qt]", "matplotlib>=3.8"]
+{%- endif %}
+dev = [
+    "pytest>=7",
+{%- if gui %}
+    "pytest-qt>=4.5",
+    "endstation[qt]",
+    "matplotlib>=3.8",
+{%- endif %}
+    "ruff>=0.16",
+]
+
+{%- if gui %}
+
+[project.scripts]
+# Points at the package, not at the widget module: the package calls
+# require_qt() first, so a missing toolkit produces the install instruction
+# rather than a bare ModuleNotFoundError naming something the user never asked
+# for.
+{{ package_name }}-gui = "{{ package_name }}.gui:main"
+{%- endif %}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Warnings are errors. A DeprecationWarning that nobody reads is how a suite
+# arrives at a release that no longer runs.
+filterwarnings = ["error"]
+# No `qt_api` here: it is a pytest-qt option, so declaring it makes the suite
+# unrunnable without the toolkit. endstation's pytest plugin exports
+# PYTEST_QT_API instead, along with the offscreen and Agg defaults.
+
+[tool.ruff]
+target-version = "py{{ python_requires | replace('.', '') }}"
+
+[tool.ruff.lint]
+# Ruff's own zero-config default before 0.x expanded it. Pyflakes (F) and the
+# handful of pycodestyle error codes that are real bugs rather than style
+# opinions -- undefined names, syntax errors, bare except -- not the ~900-rule
+# everything selection ruff now applies with no config at all.
+select = ["E4", "E7", "E9", "F"]

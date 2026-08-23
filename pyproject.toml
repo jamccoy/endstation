@@ -56,6 +56,7 @@ dev = [
     "PySide6-Essentials>=6.7",
     "matplotlib>=3.8",
     "ruff>=0.16",
+    "copier>=9",
 ]
 
 [project.scripts]

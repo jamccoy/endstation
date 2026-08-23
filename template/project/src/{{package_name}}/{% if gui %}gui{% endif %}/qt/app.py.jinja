@@ -1,0 +1,45 @@
+"""The application object and the window it shows."""
+
+from __future__ import annotations
+
+from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+
+from endstation.qt.canvas import FigurePane
+from endstation.qt.jobs import JobRunner
+from endstation.qt.tokens import StaleGuard
+
+from ... import __version__
+
+__all__ = ["MainWindow", "main"]
+
+
+class MainWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setWindowTitle("{{ project_name }}")
+
+        self._runner = JobRunner(self)
+        self._guard = StaleGuard()
+
+        self.pane = FigurePane(placeholder="Nothing computed yet")
+        central = QWidget()
+        layout = QVBoxLayout(central)
+        layout.addWidget(self.pane)
+        self.setCentralWidget(central)
+
+    def closeEvent(self, event):  # noqa: N802 - Qt's spelling
+        # Abandon anything in flight before the widgets it would draw into are
+        # deleted, then give the pool a moment to unwind.
+        self._guard.invalidate()
+        self._runner.cancel()
+        self._runner.wait(5_000)
+        super().closeEvent(event)
+
+
+def main(argv: list[str] | None = None) -> int:
+    app = QApplication.instance() or QApplication(argv or [])
+    app.setApplicationName("{{ project_name }}")
+    app.setApplicationVersion(__version__)
+    window = MainWindow()
+    window.show()
+    return app.exec()

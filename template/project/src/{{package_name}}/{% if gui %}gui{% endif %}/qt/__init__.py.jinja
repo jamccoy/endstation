@@ -1,0 +1,15 @@
+"""The widget layer, and the only part of the GUI allowed to import a toolkit.
+
+That boundary is a package boundary rather than a convention so a test can
+enforce it. The drift it prevents is the ordinary kind -- someone needing "just
+a QColor" in a module that was pure, and the headless tests quietly becoming
+un-runnable.
+
+Everything here should be thin. If a question can be answered without a window
+it belongs one level up, where it is tested without a display.
+"""
+
+from __future__ import annotations
+
+# Re-exported so the QT_API default is set before matplotlib's shim loads.
+from endstation.qt import require_qt, use_qt_backend  # noqa: F401

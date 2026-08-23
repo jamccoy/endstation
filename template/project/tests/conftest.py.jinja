@@ -1,0 +1,31 @@
+"""Shared fixtures.
+
+The headless setup -- ``QT_QPA_PLATFORM=offscreen``, ``QT_API``,
+``PYTEST_QT_API`` and ``MPLBACKEND`` -- is **not** here. It lives in
+``endstation``'s pytest plugin, which is loaded through an entry point and so
+runs before any conftest is imported. That timing is the whole difficulty: both
+Qt's platform plugin and matplotlib's backend bind at first import, and a root
+conftest is imported before ``pytest_configure`` runs.
+
+All of it uses ``setdefault``, so ``QT_QPA_PLATFORM=cocoa pytest tests/`` still
+opens a real window -- which is the fastest way to debug a layout problem.
+"""
+{% if research_data %}
+import pytest
+
+from endstation.testing.plugin import skip_without_data
+
+#: Where the research data lives when {{ data_env_var }} is not set.
+DEFAULT_DATA_DIR = "~/Documents/{{ project_slug }}_data"
+
+
+@pytest.fixture(scope="session")
+def data_dir():
+    """The research data, or a skip naming the variable that enables it.
+
+    The data is deliberately outside the checkout: it is large, and committing
+    it is hard to undo. A clean clone therefore has none, which is the normal
+    state for CI and for anyone who did not collect it -- not a failure.
+    """
+    return skip_without_data("{{ data_env_var }}", DEFAULT_DATA_DIR)
+{%- endif %}

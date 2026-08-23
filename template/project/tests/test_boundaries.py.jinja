@@ -1,0 +1,27 @@
+"""Architectural invariants.
+
+These are cheap and they catch the drift that review does not: an import that
+crosses a layer, a dependency that leaks into the part that promised not to
+have one.
+"""
+
+from endstation.testing.boundary import assert_qt_free
+{% if gui %}
+
+def test_only_the_widget_layer_imports_a_toolkit():
+    """Everything else is tested headlessly, and stops being so the moment
+    one of these grows a toolkit import.
+
+    A subprocess import rather than a source scan, so a *transitive* Qt import
+    is caught too -- a pure module that grows an innocent import of something
+    which itself pulls in Qt would pass a scan and fail here.
+    """
+    assert_qt_free([
+        "{{ package_name }}",
+        "{{ package_name }}.gui",
+    ])
+{%- else %}
+
+def test_the_package_needs_no_toolkit():
+    assert_qt_free(["{{ package_name }}"])
+{%- endif %}

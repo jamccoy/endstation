@@ -1,0 +1,60 @@
+# endstation project template.
+#
+#     pipx run copier copy gh:jamccoy/endstation-template my-project
+#
+# Carries what is duplicated across these projects but must not become a
+# runtime dependency: the packaging skeleton, the CI workflow, the headless
+# test setup, and the ignore rules.
+
+# Static, because copier renders this value as a template -- a directory
+# literally named {{project_slug}} would be resolved away before it is looked up.
+_subdirectory: project
+
+project_name:
+  type: str
+  help: Human-readable name, e.g. "Grating Lab"
+
+project_slug:
+  type: str
+  help: Repository directory name
+  default: "{{ project_name | lower | replace(' ', '_') }}"
+
+package_name:
+  type: str
+  help: Import name, e.g. gratinglab
+  default: "{{ project_slug | replace('-', '_') }}"
+
+description:
+  type: str
+  help: One line, for pyproject and the README
+
+author:
+  type: str
+  default: Jake McCoy
+
+python_requires:
+  type: str
+  help: Minimum Python
+  default: "3.11"
+  choices: ["3.10", "3.11", "3.12"]
+
+gui:
+  type: bool
+  help: Does this project have a PySide6 window?
+  default: true
+
+research_data:
+  type: bool
+  help: Does the test suite read data held outside the checkout?
+  default: false
+
+data_env_var:
+  type: str
+  help: Environment variable naming the data root
+  default: "{{ package_name | upper }}_DATA_DIR"
+  when: "{{ research_data }}"
+
+min_tests:
+  type: int
+  help: CI fails if fewer than this many tests pass. Guards a suite that quietly shrinks.
+  default: 1

@@ -142,3 +142,37 @@ opens a real window. `ENDSTATION_NO_HEADLESS=1` disables it entirely.
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+## The template
+
+The pyproject skeleton, the CI workflow, the headless conftest and the ignore
+rules are duplicated across these projects too — but they must not become a
+runtime dependency, so they live in a [copier](https://copier.readthedocs.io)
+template rather than in the package:
+
+```bash
+pipx run copier copy gh:jamccoy/endstation my-project --subdirectory template
+```
+
+It asks whether the project has a PySide6 window and whether its tests read data
+held outside the checkout, and renders accordingly — a library project gets no
+`gui/` directory, and no apt step installing Qt system libraries into a CI run
+that will never open a window.
+
+What it carries that is easy to get wrong:
+
+- The CI step that **constructs a `QApplication`** rather than merely importing
+  PySide6. The import succeeds long before the platform plugin is asked to load,
+  which is where a missing system library actually bites — and it fails next to
+  the apt step that would be at fault.
+- The check that data-dependent tests **skipped rather than failed**, and the
+  floor on how many tests must pass. A suite that quietly shrinks goes green
+  while testing almost nothing.
+- No `qt_api` in `[tool.pytest.ini_options]`. It is a pytest-qt option, so
+  declaring it makes the suite unrunnable without the toolkit — the plugin
+  exports `PYTEST_QT_API` instead.
+- `CLAUDE.md` in `.gitignore` from the first commit.
+
+`tests/test_template.py` renders both variants and inspects the output, so a
+Jinja typo or a `${{ }}` the renderer ate fails here rather than the next time
+someone starts a project.

@@ -1,0 +1,143 @@
+name: tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The load-bearing job. If the core ever grows a dependency, everything
+  # downstream that declares `dependencies = []` silently inherits it at
+  # install time -- so this runs first, on a bare interpreter, with nothing
+  # installed but the package itself.
+  core:
+    name: core has no dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # No extras. Deliberately not `.[dev]` -- installing the toolkit here
+      # would make the next step pass for the wrong reason.
+      - name: Install the package alone
+        run: python -m pip install -e .
+
+      - name: Confirm nothing third-party came with it
+        run: |
+          python - <<'PY'
+          import subprocess, sys, json
+          out = subprocess.run([sys.executable, "-m", "pip", "list",
+                                "--format=json", "--not-required"],
+                               capture_output=True, text=True).stdout
+          names = {p["name"].lower() for p in json.loads(out)}
+          allowed = {"endstation", "pip", "setuptools", "wheel"}
+          extra = names - allowed
+          print("installed:", sorted(names))
+          if extra:
+              sys.exit(f"installing endstation pulled in: {sorted(extra)}")
+          PY
+
+      - name: Import the core on a bare interpreter
+        run: python -m pytest tests/test_core_has_no_dependencies.py -v
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          # One macOS run: it is the development platform, and it is the only
+          # one where the .app builder does anything at all.
+          - os: macos-latest
+            python-version: "3.12"
+
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # Qt's *offscreen* platform plugin needs no X server, so no Xvfb and none
+      # of the libxcb-* family -- but libQt6Gui still links EGL, and fontconfig
+      # and GLib have to be present for the plugin to load at all.
+      #
+      # libglib2.0-0 was renamed libglib2.0-0t64 in Ubuntu 24.04; the old name
+      # fails this step. If the plugin still refuses to load, QT_DEBUG_PLUGINS=1
+      # names the missing .so directly.
+      - name: Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libglib2.0-0t64 libdbus-1-3 libfontconfig1 \
+            libfreetype6 libxkbcommon0
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      # The Qt tests guard themselves with importorskip, which would hide a
+      # broken toolkit install as a quietly shrinking suite. This makes it loud,
+      # and it fails here -- next to the apt step that would be at fault --
+      # rather than as a mystery in the test job.
+      #
+      # Constructing a QApplication, not merely importing: the import succeeds
+      # long before the platform plugin is asked to load, which is where a
+      # missing system library actually bites.
+      - name: Confirm the GUI toolkit installed
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -W error -c "
+          import matplotlib, PySide6
+          from PySide6.QtWidgets import QApplication
+          QApplication([])
+          print('PySide6', PySide6.__version__, '| matplotlib', matplotlib.__version__)
+          "
+
+      - name: Run tests
+        run: python -m pytest -v --durations=10
+
+      # The suite is small enough that a silent collapse would not be obvious
+      # from a green tick. If the Qt tests start skipping because the toolkit
+      # stopped installing, this is what says so.
+      - name: Confirm the suite did not quietly shrink
+        run: |
+          python -m pytest -q -rs 2>&1 | tee result.txt
+          python - <<'PY'
+          import re, sys
+          text = open("result.txt").read()
+          match = re.search(r"(\d+) passed", text)
+          passed = int(match.group(1)) if match else 0
+          print(f"{passed} passed")
+          if passed < 130:
+              sys.exit(f"only {passed} tests passed; expected at least 130")
+          PY
+
+      - name: Check the public API imports
+        run: |
+          python -c "
+          import endstation
+          from endstation import require_extra, Cancelled, ErrorCollector, find_data
+          from endstation.qt.jobs import JobRunner
+          from endstation.docs import to_html
+          print('version', endstation.__version__)
+          print('exports', len(endstation.__all__))
+          "

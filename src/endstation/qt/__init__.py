@@ -31,20 +31,24 @@ from __future__ import annotations
 
 import os
 
-from ..optional import require_extra
+from ..optional import missing_extra_message, require_extra
 
 __all__ = [
     "QT_MISSING_MESSAGE",
+    "STILL_WORKS",
     "require_qt",
     "use_qt_backend",
 ]
 
-QT_MISSING_MESSAGE = (
-    "the Qt interface needs PySide6, which is an optional extra.\n"
-    "Install it with:\n\n"
-    "    pip install -e '.[qt]'\n\n"
-    "Everything that is not the window works without it."
-)
+#: What a missing toolkit does *not* break. Without a sentence like this, a
+#: user who only wanted the analysis reads an absent GUI extra as a broken
+#: install.
+STILL_WORKS = "Everything that is not the window works without it."
+
+#: The default message, for the common case: a project whose GUI extra is named
+#: ``gui``. Downstream suites assert on this, so it is a module constant rather
+#: than something only reachable by triggering the failure.
+QT_MISSING_MESSAGE = missing_extra_message("PySide6", "gui", still_works=STILL_WORKS)
 
 # matplotlib's Qt shim (backends/qt_compat.py) picks a binding from sys.modules
 # first and QT_API second. Without this, a stray PyQt5 in the environment wins
@@ -56,7 +60,7 @@ QT_MISSING_MESSAGE = (
 os.environ.setdefault("QT_API", "PySide6")
 
 
-def require_qt(package: str | None = None) -> None:
+def require_qt(package: str | None = None, *, extra: str = "gui") -> None:
     """Raise something useful rather than a bare ImportError.
 
     Call this from a console-script entry point *before* importing the window,
@@ -64,16 +68,16 @@ def require_qt(package: str | None = None) -> None:
     produces an install instruction instead of a traceback naming a package the
     user never asked for.
 
+    ``extra`` defaults to ``"gui"`` because that is what every project
+    downstream calls it. This package's own is ``qt``, since here the toolkit is
+    the subject rather than the interface -- pass it explicitly in that case. A
+    message naming an extra that does not exist is worse than no message.
+
     Uses ``find_spec`` rather than an import, so it is safe to call from outside
     this subpackage -- which is the point, since the module that owns the entry
     point is usually one the boundary test forbids from importing Qt.
     """
-    require_extra(
-        "PySide6",
-        "gui",
-        package=package,
-        still_works="Everything that is not the window works without it.",
-    )
+    require_extra("PySide6", extra, package=package, still_works=STILL_WORKS)
 
 
 def use_qt_backend() -> None:

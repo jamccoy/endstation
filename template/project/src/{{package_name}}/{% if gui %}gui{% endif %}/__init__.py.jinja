@@ -1,0 +1,49 @@
+"""A PySide6 front-end for {{ project_name }}.
+
+**This package carries no analysis logic.** It computes nothing itself: every
+number it shows comes from the core, which knows nothing about Qt, so behaviour
+stays testable without a display.
+
+Two rules make that boundary real rather than aspirational:
+
+1. **Only ``gui.qt`` may import a toolkit.** Everything else here is pure and
+   tested headlessly; ``tests/test_boundaries.py`` fails if PySide6 appears
+   outside ``gui/qt``.
+
+2. **Only the main thread may touch a matplotlib figure.** The worker returns
+   plain data; the window draws from it. Drawing from a worker is the classic
+   way a Qt + matplotlib application crashes, usually intermittently and far
+   from the cause.
+
+Importing ``gui.qt`` requires PySide6, an optional extra::
+
+    pip install -e '.[gui]'
+"""
+
+from __future__ import annotations
+
+from endstation.optional import require_extra
+
+__all__ = ["main", "require_qt"]
+
+
+def require_qt() -> None:
+    """Raise something useful rather than a bare ImportError."""
+    require_extra(
+        "PySide6",
+        "gui",
+        still_works="The analysis and the exporters work without it.",
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Launch the window. Entry point for the ``{{ package_name }}-gui`` script.
+
+    ``require_qt`` runs before the widget import, so a missing extra produces
+    the install instruction rather than a traceback naming a package the user
+    never asked for. That is also why this module must stay toolkit-free.
+    """
+    require_qt()
+    from .qt.app import main as _main
+
+    return _main(argv)
