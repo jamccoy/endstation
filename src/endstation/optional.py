@@ -47,9 +47,11 @@ class MissingExtra(ModuleNotFoundError):
 
 def missing_extra_message(
     module: str,
-    extra: str,
+    extra: str | None = None,
     *,
     package: str | None = None,
+    install: str | None = None,
+    purpose: str | None = None,
     still_works: str | None = None,
 ) -> str:
     """Compose the text :func:`require_extra` raises.
@@ -69,13 +71,26 @@ def missing_extra_message(
     which is a worse first experience than the ImportError this replaced. An
     editable install is offered for the no-``package`` case because that is the
     situation a developer in a checkout is actually in.
+
+    ``install`` overrides the derived command outright, for a dependency that
+    is **not** an extra of anything -- a package installed straight from a git
+    URL, say. That case is real and the derived form cannot express it: not
+    every optional dependency is one you package.
+
+    ``purpose`` names what needs it, for a library where only a few functions
+    do. "needed for wavefront fitting" tells a reader whether they care; "this
+    feature" does not.
     """
-    if package:
+    if install is not None:
+        command = install
+    elif package:
         command = f"pip install '{package}[{extra}]'"
     else:
         command = f"pip install -e '.[{extra}]'"
+
+    what = f"needed for {purpose}" if purpose else "an optional extra"
     lines = [
-        f"this feature needs {module}, which is an optional extra.",
+        f"this feature needs {module}, which is {what}.",
         "Install it with:",
         "",
         f"    {command}",
@@ -88,9 +103,11 @@ def missing_extra_message(
 
 def require_extra(
     module: str,
-    extra: str,
+    extra: str | None = None,
     *,
     package: str | None = None,
+    install: str | None = None,
+    purpose: str | None = None,
     still_works: str | None = None,
 ) -> None:
     """Raise something useful if ``module`` is not importable.
@@ -121,7 +138,8 @@ def require_extra(
     if not found:
         raise MissingExtra(
             missing_extra_message(
-                module, extra, package=package, still_works=still_works
+                module, extra, package=package, install=install,
+                purpose=purpose, still_works=still_works,
             )
         )
 
@@ -129,7 +147,8 @@ def require_extra(
 class _OptionalModule:
     """Proxy that imports ``name`` on first attribute access."""
 
-    def __init__(self, name: str, extra: str, package: str | None,
+    def __init__(self, name: str, extra: str | None, package: str | None,
+                 install: str | None, purpose: str | None,
                  still_works: str | None) -> None:
         # Written through `object.__setattr__`-style plain assignment is fine
         # here because `__getattr__` only fires for attributes that are *not*
@@ -137,6 +156,8 @@ class _OptionalModule:
         self._name = name
         self._extra = extra
         self._package = package
+        self._install = install
+        self._purpose = purpose
         self._still_works = still_works
         self._module: Any = None
 
@@ -156,6 +177,8 @@ class _OptionalModule:
                         self._name,
                         self._extra,
                         package=self._package,
+                        install=self._install,
+                        purpose=self._purpose,
                         still_works=self._still_works,
                     )
                 ) from err
@@ -168,9 +191,11 @@ class _OptionalModule:
 
 def optional_module(
     name: str,
-    extra: str,
+    extra: str | None = None,
     *,
     package: str | None = None,
+    install: str | None = None,
+    purpose: str | None = None,
     still_works: str | None = None,
 ) -> Any:
     """Return a lazy proxy for ``name``.
@@ -179,7 +204,15 @@ def optional_module(
 
         astropy = optional_module("astropy", "trapezoid", package="als_eff_meas")
 
+    For a dependency that is not an extra of anything, give the command::
+
+        utilities = optional_module(
+            "utilities.imaging.man",
+            purpose="wavefront fitting",
+            install="pip install git+https://github.com/rallured/utilities.git",
+        )
+
     The import happens on first attribute access, so a module using this stays
     importable -- and its other functions stay usable -- without the dependency.
     """
-    return _OptionalModule(name, extra, package, still_works)
+    return _OptionalModule(name, extra, package, install, purpose, still_works)

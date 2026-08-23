@@ -79,3 +79,42 @@ def test_optional_module_private_attributes_do_not_recurse():
     proxy = optional_module("json", "core")
     with pytest.raises(AttributeError):
         proxy._not_a_real_private_attribute
+
+
+# -- dependencies that are not extras --------------------------------------
+
+
+def test_an_explicit_install_command_overrides_the_derived_one():
+    """Not every optional dependency is one you package.
+
+    PyXFocus's `utilities` comes straight from a git URL; there is no extra to
+    name, and the derived `pip install '.[x]'` form cannot express it.
+    """
+    text = missing_extra_message(
+        "utilities.imaging.man",
+        install="pip install git+https://github.com/rallured/utilities.git",
+    )
+    assert "git+https://github.com/rallured/utilities.git" in text
+    assert "[" not in text.split("Install it with:")[1]
+
+
+def test_purpose_says_what_needs_it():
+    """"needed for wavefront fitting" tells a reader whether they care."""
+    text = missing_extra_message("utilities", purpose="wavefront fitting",
+                                 install="pip install utilities")
+    assert "needed for wavefront fitting" in text
+
+
+def test_an_extra_is_still_the_default_shape():
+    assert "optional extra" in missing_extra_message("PySide6", "gui")
+
+
+def test_the_proxy_carries_an_explicit_install_command():
+    proxy = optional_module(
+        "definitely_not_installed_xyz",
+        purpose="testing",
+        install="pip install x",
+    )
+    with pytest.raises(MissingExtra) as excinfo:
+        proxy.anything
+    assert "pip install x" in str(excinfo.value)
