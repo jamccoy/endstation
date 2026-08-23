@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+
+# Local working notes. Stays on disk, never published.
+CLAUDE.md
+
+# Built bundles are artifacts: the generator is what is versioned, and the
+# stub hard-codes an absolute path to one machine's virtualenv.
+*.app/
+*.icns

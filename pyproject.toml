@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endstation"
+version = "0.1.0"
+description = "Shared scaffolding for desktop scientific applications: optional-dependency guards, cancellable workers, Qt/matplotlib panes, and macOS app bundling"
+readme = "README.md"
+# 3.10 rather than 3.12: `eblfrac` declares >=3.10 and `gratinglab` >=3.11.
+# A shared package cannot raise the floor of the projects it serves.
+requires-python = ">=3.10"
+license = { text = "BSD-3-Clause" }
+authors = [{ name = "Jake McCoy" }]
+keywords = ["gui", "pyside6", "matplotlib", "macos", "scientific", "packaging"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+
+# Deliberately empty, and the one line in this file worth defending.
+#
+# `eblfrac` declares `dependencies = []` on purpose -- its fracture engine and
+# GPF writer install anywhere, including on a machine with no scientific stack
+# at all. A shared package that forced numpy on it would take that away, and it
+# would take it away silently, at install time, from every downstream user.
+# Everything here that needs numpy, matplotlib or a toolkit lives behind an
+# extra and is imported inside the function that needs it.
+dependencies = []
+
+[project.optional-dependencies]
+# PySide6-Essentials rather than the PySide6 meta-package: the Addons
+# (WebEngine, Multimedia, 3D) are hundreds of megabytes no window served by
+# this package touches. Essentials still carries QtSvg, which matplotlib's Qt
+# shim imports unconditionally.
+#
+# PySide6 (LGPLv3) rather than PyQt5/PyQt6 (GPL). This package is BSD-3, and an
+# optional, dynamically-linked LGPL dependency keeps it that way -- the same
+# reasoning every project downstream of it already applies to its own GUI extra.
+qt = ["PySide6-Essentials>=6.7"]
+mpl = ["matplotlib>=3.8"]
+# `markdown` only for the HTML prerender path, which exists for Qt versions
+# predating QTextBrowser.setMarkdown. The mathtext renderer needs matplotlib,
+# not this.
+docs = ["markdown>=3.5"]
+testing = ["pytest>=7"]
+dev = [
+    "pytest>=7",
+    "pytest-qt>=4.5",
+    "PySide6-Essentials>=6.7",
+    "matplotlib>=3.8",
+    "markdown>=3.5",
+    "ruff>=0.16",
+]
+
+[project.scripts]
+endstation-icon = "endstation.tools.make_icon:main"
+endstation-app = "endstation.tools.make_app:main"
+endstation-publish-wiki = "endstation.tools.publish_wiki:main"
+
+[project.urls]
+Homepage = "https://github.com/jamccoy/endstation"
+
+# The pytest plugin is registered here rather than requiring every downstream
+# conftest to name it. `endstation.testing.plugin` is import-safe without
+# pytest installed at the module level only because pytest is what loads it.
+[project.entry-points.pytest11]
+endstation = "endstation.testing.plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+# No `qt_api` here on purpose: it is a pytest-qt option, and this suite has
+# to run in an environment that has never installed a toolkit. The plugin
+# exports PYTEST_QT_API instead, which pytest-qt honours and which costs
+# nothing when pytest-qt is absent.
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+# Ruff's own zero-config default before 0.x expanded it. Pyflakes (F) and the
+# handful of pycodestyle error codes that are real bugs rather than style
+# opinions -- undefined names, syntax errors, bare except -- not the ~900-rule
+# everything selection ruff now applies with no config at all.
+select = ["E4", "E7", "E9", "F"]
