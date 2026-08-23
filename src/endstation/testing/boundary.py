@@ -21,12 +21,56 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 from typing import Iterable, Sequence
 
-__all__ = ["TOOLKITS", "assert_import_free", "assert_qt_free", "leaked_imports"]
+__all__ = ["TOOLKITS", "assert_import_free", "assert_qt_free", "leaked_imports",
+           "modules_in"]
 
 #: Every Qt binding a stray import might reach for.
 TOOLKITS: tuple[str, ...] = ("PySide6", "PySide2", "PyQt5", "PyQt6")
+
+def modules_in(
+    package: str,
+    *,
+    exclude: Sequence[str] = (),
+) -> tuple[str, ...]:
+    """Every importable module under ``package``, as dotted names.
+
+    Discovery matters as much as the check. The AST-scanning versions this
+    replaces walked the package directory, so a newly added pure module was
+    covered the moment it existed; a hand-written list silently stops covering
+    whatever nobody remembered to add -- which is the same failure the boundary
+    test exists to prevent, one level up.
+
+    ``exclude`` names subpackages to skip, as dotted prefixes. The widget layer
+    is the obvious one: it is *supposed* to import a toolkit.
+
+    **Walks the filesystem rather than using ``pkgutil.walk_packages``.** That
+    function imports each subpackage in order to read its ``__path__``, which
+    would defeat the purpose twice over: the caller is about to import these in
+    *fresh interpreters* precisely to see what each one drags in, and a
+    subpackage needing an absent extra would raise here rather than being
+    reported. Only ``package`` itself is imported, to find where it lives.
+    """
+    import importlib
+
+    root = Path(importlib.import_module(package).__path__[0])
+
+    found = [package]
+    for path in sorted(root.rglob("*.py")):
+        relative = path.relative_to(root)
+        parts = list(relative.parts[:-1])
+        if relative.stem != "__init__":
+            parts.append(relative.stem)
+        if not parts:
+            continue  # the package's own __init__, already listed
+        name = ".".join([package, *parts])
+        if any(name == e or name.startswith(f"{e}.") for e in exclude):
+            continue
+        found.append(name)
+    return tuple(found)
+
 
 _PROBE = """
 import sys, {module}
