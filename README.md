@@ -52,7 +52,7 @@ Everything heavier lives behind an extra:
 | Subpackage | Extra | Needs |
 |---|---|---|
 | `endstation.qt` | `qt` | PySide6, matplotlib |
-| `endstation.docs` | `docs` | matplotlib (math), markdown (HTML) |
+| `endstation.docs` | `docs` | matplotlib, for math only |
 | `endstation.testing` | `testing` | pytest |
 | `endstation.tools` | — | macOS `sips`/`iconutil` at runtime |
 
