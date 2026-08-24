@@ -97,9 +97,26 @@ def test_generated_pyproject_parses(gui_project):
     assert "endstation>=0.1" in data["project"]["dependencies"]
 
 
-def test_the_console_script_uses_the_import_name(gui_project):
+def test_the_entry_point_uses_the_import_name(gui_project):
     data = tomllib.loads((gui_project / "pyproject.toml").read_text())
-    assert data["project"]["scripts"]["demoapp-gui"] == "demoapp.gui:main"
+    assert data["project"]["gui-scripts"]["demoapp-gui"] == "demoapp.gui:main"
+
+
+def test_a_window_is_declared_under_gui_scripts(gui_project):
+    """`scripts` would give the window a console behind it on Windows.
+
+    setuptools generates a console launcher for `[project.scripts]` and a
+    windowed one for `[project.gui-scripts]`. The two are indistinguishable on
+    macOS and Linux, which is why every project this template was drawn from
+    has it wrong -- and why getting it right here costs nothing and is worth
+    asserting: nobody would notice the regression until they ran the app on a
+    platform they rarely boot.
+    """
+    data = tomllib.loads((gui_project / "pyproject.toml").read_text())
+    assert "gui-scripts" in data["project"]
+    assert "scripts" not in data["project"], (
+        "a windowed application declared under `scripts` shows a console on Windows"
+    )
 
 
 def test_the_gui_extra_exists_only_when_asked_for(gui_project, lib_project):
