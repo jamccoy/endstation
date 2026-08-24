@@ -66,6 +66,11 @@ dev = [
     "matplotlib>=3.8",
     "ruff>=0.16",
     "copier>=9",
+    # tomllib is 3.11+; this package supports 3.10 to match eblfrac's floor, and
+    # the packaging tests read pyproject on every version. A backport is cheaper
+    # than a skipif per test file -- the second of which is how the same gap
+    # reached CI twice.
+    "tomli>=2; python_version < '3.11'",
 ]
 
 [project.scripts]

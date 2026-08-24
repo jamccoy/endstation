@@ -17,18 +17,12 @@ import pytest
 
 copier = pytest.importorskip("copier", reason="copier is a dev extra")
 
-# `tomllib` is 3.11+, and this package supports 3.10 -- caught by the CI matrix,
-# which is the only place a 3.10 interpreter exists here. The tests that parse
-# the generated pyproject skip there; the ones asserting on its text still run,
-# so 3.10 is not left unchecked.
+# tomllib is 3.11+; `tomli` is declared in the dev extra for 3.10 so these run
+# on every supported version rather than skipping on the oldest one.
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - 3.10 only
-    tomllib = None
-
-needs_tomllib = pytest.mark.skipif(
-    tomllib is None, reason="tomllib is 3.11+; the text assertions still cover 3.10"
-)
+    import tomli as tomllib
 
 #: The repository root -- copier.yml lives there, and `_subdirectory` points
 #: it at `template/project`. Pointing this at `template/` would test a
@@ -53,7 +47,11 @@ def render(tmp_path: Path, data: dict) -> Path:
     """
     target = tmp_path / "rendered"
     with warnings.catch_warnings():
+        # DirtyLocalWarning: rendering uncommitted changes, which is the point.
+        # ShallowCloneWarning: actions/checkout clones with depth 1, so CI hits
+        # this and a laptop does not -- environmental, not a defect in either.
         warnings.simplefilter("ignore", copier.errors.DirtyLocalWarning)
+        warnings.simplefilter("ignore", copier.errors.ShallowCloneWarning)
         copier.run_copy(str(TEMPLATE), str(target), data=data,
                         defaults=True, unsafe=True, quiet=True, vcs_ref="HEAD")
     return target
@@ -93,20 +91,17 @@ def test_both_variants_carry_the_essentials(gui_project, lib_project):
 # -- pyproject --------------------------------------------------------------
 
 
-@needs_tomllib
 def test_generated_pyproject_parses(gui_project):
     data = tomllib.loads((gui_project / "pyproject.toml").read_text())
     assert data["project"]["name"] == "demo_app"
     assert "endstation>=0.1" in data["project"]["dependencies"]
 
 
-@needs_tomllib
 def test_the_console_script_uses_the_import_name(gui_project):
     data = tomllib.loads((gui_project / "pyproject.toml").read_text())
     assert data["project"]["scripts"]["demoapp-gui"] == "demoapp.gui:main"
 
 
-@needs_tomllib
 def test_the_gui_extra_exists_only_when_asked_for(gui_project, lib_project):
     gui = tomllib.loads((gui_project / "pyproject.toml").read_text())
     lib = tomllib.loads((lib_project / "pyproject.toml").read_text())

@@ -5,8 +5,12 @@ it is read by pip, not by Python, so an extra can be wrong for months while
 every test passes. Both failures below were real.
 """
 
-import tomllib
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - 3.10 only
+    import tomli as tomllib
 
 import pytest
 
