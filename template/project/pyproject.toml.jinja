@@ -47,7 +47,12 @@ dev = [
 
 {%- if gui %}
 
-[project.scripts]
+# gui-scripts, not scripts. Identical on macOS and Linux; on Windows,
+# `scripts` generates a *console* launcher, so the app shows a console window
+# behind its own window for as long as it runs. Free to get right here, and
+# invisible until somebody runs it on Windows -- which is the kind of default
+# this template exists to carry.
+[project.gui-scripts]
 # Points at the package, not at the widget module: the package calls
 # require_qt() first, so a missing toolkit produces the install instruction
 # rather than a bare ModuleNotFoundError naming something the user never asked
