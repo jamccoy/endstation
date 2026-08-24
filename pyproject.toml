@@ -66,6 +66,13 @@ dev = [
     "matplotlib>=3.8",
     "ruff>=0.16",
     "copier>=9",
+    "pytest-cov>=4",
+    # Named rather than inherited. `tests/test_packaging.py` reads the CI
+    # workflow as YAML, and PyYAML reaches this environment only as a transitive
+    # dependency of copier -- so the day copier stops needing it, a packaging
+    # test errors on import instead of skipping, and it does so in a file that
+    # has nothing to do with templates.
+    "PyYAML>=6",
     # tomllib is 3.11+; this package supports 3.10 to match eblfrac's floor, and
     # the packaging tests read pyproject on every version. A backport is cheaper
     # than a skipif per test file -- the second of which is how the same gap
@@ -106,6 +113,36 @@ filterwarnings = ["error"]
 # to run in an environment that has never installed a toolkit. The plugin
 # exports PYTEST_QT_API instead, which pytest-qt honours and which costs
 # nothing when pytest-qt is absent.
+
+# Coverage is what the CI "did the suite shrink" step was reaching for. That
+# step counted passing tests, which answers a different question badly: a floor
+# of 130 against a suite of 186 tolerated a 30% collapse, and the number needed
+# raising by hand every time the suite grew -- so it only ever rotted downward.
+#
+# **Measure with `coverage run -m pytest`, never `pytest --cov`.** This package
+# registers a `pytest11` entry point, and pytest imports entry-point plugins
+# before it imports its own conftest -- which is the whole reason
+# `testing.plugin` is a plugin rather than a fixture. `endstation.testing.plugin`
+# imports `..paths`, which imports the package, which imports the entire
+# dependency-free core. Under `--cov` that all happens before coverage starts
+# recording, so `forms.py` reports 31% when it is 88% covered and `plugin.py`
+# reports 0%. The difference is 8 points of total coverage that do not exist.
+# `coverage run` starts first and sees the imports.
+[tool.coverage.run]
+source = ["endstation"]
+branch = true
+
+[tool.coverage.report]
+# A ratchet, not a target: it sits just under what the suite currently reports,
+# so a regression fails and an improvement is free. Raise it when a phase lands,
+# never lower it to make a red run green.
+fail_under = 78
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
 
 [tool.ruff]
 target-version = "py310"

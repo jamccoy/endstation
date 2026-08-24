@@ -157,3 +157,60 @@ def test_the_release_workflow_builds_before_it_publishes():
     workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
     assert "twine check" in workflow
     assert "upload-artifact" in workflow and "download-artifact" in workflow
+
+
+def test_every_heredoc_step_declares_bash():
+    """A `python - <<'PY'` step must say `shell: bash` or Windows cannot run it.
+
+    PowerShell is the default shell on `windows-latest` and does not understand
+    heredoc redirection; the step fails with a parse error that names neither
+    the heredoc nor the shell. git-bash is present on GitHub's Windows runners,
+    so declaring it costs nothing on the other two platforms.
+
+    Asserted rather than remembered because the failure only appears on the leg
+    that is added last, and reads as "Windows is broken" rather than "this step
+    was never portable."
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (PYPROJECT.parent / ".github/workflows/test.yml").read_text()
+    )
+    missing = [
+        f"{job}/{step.get('name', '?')}"
+        for job, spec in workflow["jobs"].items()
+        for step in spec["steps"]
+        if "<<'PY'" in str(step.get("run", "")) and step.get("shell") != "bash"
+    ]
+    assert not missing, f"heredoc steps without `shell: bash`: {missing}"
+
+
+def test_coverage_is_measured_by_coverage_run_not_pytest_cov():
+    """`pytest --cov` under-reports this package by 8 points, and silently.
+
+    pytest imports `pytest11` entry-point plugins before its own conftest --
+    which is the entire reason `endstation.testing.plugin` is a plugin. That
+    plugin imports `..paths`, which imports the package, which imports the whole
+    dependency-free core. Under `--cov` all of it is already imported before
+    coverage starts recording, so `forms.py` reports 31% when it is 88% covered.
+
+    A wrong coverage number is worse than none: it is the kind of measurement
+    somebody raises a floor against.
+    """
+    import yaml
+
+    workflow = yaml.safe_load(
+        (PYPROJECT.parent / ".github/workflows/test.yml").read_text()
+    )
+    # The commands only. `--cov` appears in the comments above them, saying
+    # exactly this -- and a test that read the raw file would fail on its own
+    # explanation.
+    commands = [
+        str(step.get("run", ""))
+        for spec in workflow["jobs"].values()
+        for step in spec["steps"]
+    ]
+    assert any("coverage run -m pytest" in c for c in commands)
+    assert not [c for c in commands if "--cov" in c], (
+        "pytest --cov misses the imports the pytest11 plugin makes first"
+    )
