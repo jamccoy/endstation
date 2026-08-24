@@ -1,0 +1,92 @@
+name: publish
+
+# Publishes to PyPI when a version tag is pushed.
+#
+#     git tag -a v0.2.0 -m "..." && git push origin v0.2.0
+#
+# **No API token.** This uses PyPI's Trusted Publishing (OIDC): GitHub proves
+# to PyPI that this workflow, in this repository, produced these artifacts, and
+# PyPI accepts them on that basis. Nothing is stored in repository secrets, so
+# there is no token to leak, rotate, or accidentally print in a log.
+#
+# One-time setup on PyPI, at https://pypi.org/manage/account/publishing/ --
+# add a *pending publisher* with:
+#
+#     PyPI project name:  endstation
+#     Owner:              jamccoy
+#     Repository:         endstation
+#     Workflow name:      publish.yml
+#     Environment name:   pypi
+#
+# The first successful run creates the project.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # Build once, publish that exact artifact. Building inside the publish job
+  # would mean the thing tested and the thing uploaded are separate builds.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: setuptools reads the version from the package, but a
+          # shallow clone has bitten this repository's tests before.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      # A malformed README or a missing classifier is rejected by PyPI *after*
+      # upload, which for a version number is unrecoverable -- it cannot be
+      # reused. Catch it here instead.
+      - name: Check the artifacts
+        run: python -m twine check dist/*
+
+      # The tag and the package version must agree. A tag that says v0.2.0 on a
+      # package that says 0.1.0 publishes the wrong thing under the right name,
+      # and PyPI will not let you take it back.
+      - name: Confirm the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, sys
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          built = [p.name for p in pathlib.Path("dist").glob("*.tar.gz")]
+          assert len(built) == 1, f"expected one sdist, got {built}"
+          version = re.match(r"endstation-(.+)\.tar\.gz", built[0]).group(1)
+          print(f"tag {tag!r} vs built {version!r}")
+          if tag != version:
+              sys.exit(f"tag v{tag} does not match the built version {version}")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Named environment, so the trusted-publisher binding is scoped to it and a
+    # release can be given a required reviewer later without changing this file.
+    environment: pypi
+    permissions:
+      # The OIDC token PyPI verifies. This is the whole authentication story.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

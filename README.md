@@ -61,9 +61,31 @@ must not raise its consumers' floor.
 
 ## Install
 
+Not on PyPI yet, so consumers install from git:
+
+```bash
+pip install "endstation[qt] @ git+https://github.com/jamccoy/endstation.git"
+```
+
+Pin a tag for anything that matters:
+
+```bash
+pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.1.0"
+```
+
+For work on endstation itself:
+
 ```bash
 pip install -e '.[dev]'
 ```
+
+### Publishing
+
+`.github/workflows/publish.yml` releases to PyPI when a `v*` tag is pushed,
+using Trusted Publishing — there is no API token anywhere, so there is nothing
+to leak or rotate. It needs a one-time *pending publisher* registered at
+<https://pypi.org/manage/account/publishing/> for `jamccoy/endstation`,
+workflow `publish.yml`, environment `pypi`.
 
 ## What is in it
 

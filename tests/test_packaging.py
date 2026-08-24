@@ -123,3 +123,37 @@ def test_the_readme_documents_a_command_that_resolves():
     assert "--subdirectory" not in line, (
         "copier has no --subdirectory flag; the mechanism is _subdirectory in copier.yml"
     )
+
+
+# -- release -----------------------------------------------------------------
+
+
+def test_the_release_workflow_uses_no_api_token():
+    """Trusted Publishing, not a stored secret.
+
+    A PyPI API token in repository secrets is a credential that can leak, needs
+    rotating, and can be printed by any workflow step that is careless with an
+    environment dump. OIDC has none of those properties: GitHub attests that
+    this workflow produced these artifacts and PyPI accepts that.
+    """
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    assert "id-token: write" in workflow, "OIDC permission is the mechanism"
+    assert "secrets.PYPI" not in workflow, "no API token should be referenced"
+    assert "password:" not in workflow
+
+
+def test_the_release_workflow_checks_the_tag_against_the_version():
+    """A version number on PyPI cannot be reused, so a mismatch is permanent.
+
+    Tagging v0.2.0 on a package that still says 0.1.0 publishes the wrong thing
+    under a name nobody can take back.
+    """
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    assert "does not match the built version" in workflow
+
+
+def test_the_release_workflow_builds_before_it_publishes():
+    """Publish the artifact that was checked, not a second build of the source."""
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    assert "twine check" in workflow
+    assert "upload-artifact" in workflow and "download-artifact" in workflow
