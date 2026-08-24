@@ -149,3 +149,55 @@ def test_is_alive_after_qt_deletes_the_c_object(qtbot):
     widget = QWidget()
     shiboken6.delete(widget)
     assert not is_alive(widget)
+
+
+# -- use_qt_backend ------------------------------------------------------
+#
+# Monkeypatched rather than driven for real. `matplotlib.use` is process-wide,
+# so a test that actually switched the backend would hand every test after it
+# a different one -- and the suite runs under Agg on purpose.
+
+
+def _decide(monkeypatch, backend: str, *, force: bool) -> list[str]:
+    """Report which backend `use_qt_backend` would select, selecting none.
+
+    `get_backend` and `use` are patched on the real matplotlib rather than the
+    module being replaced wholesale: `require_extra` resolves matplotlib with
+    `find_spec`, which consults `sys.modules` and rejects an object with no
+    `__spec__`. Patching the two functions leaves the module a real module.
+    """
+    import matplotlib
+
+    import endstation.qt
+
+    used: list[str] = []
+    monkeypatch.setattr(matplotlib, "get_backend", lambda: backend)
+    monkeypatch.setattr(matplotlib, "use", used.append)
+    endstation.qt.use_qt_backend(force=force)
+    return used
+
+
+def test_a_qt_backend_is_left_alone(monkeypatch):
+    """Calling twice is safe; the second call has nothing to do."""
+    assert _decide(monkeypatch, "QtAgg", force=False) == []
+    assert _decide(monkeypatch, "QtAgg", force=True) == []
+
+
+def test_agg_is_respected_by_default(monkeypatch):
+    """An explicit MPLBACKEND=Agg -- what the headless plugin sets -- wins."""
+    assert _decide(monkeypatch, "agg", force=False) == []
+
+
+def test_force_overrides_agg(monkeypatch):
+    """The eblfrac case: a real Qt backend even under test.
+
+    This is the whole reason the keyword exists -- without it that project
+    kept a forked copy of this function to get the opposite answer.
+    """
+    assert _decide(monkeypatch, "agg", force=True) == ["QtAgg"]
+
+
+def test_a_foreign_backend_is_replaced_either_way(monkeypatch):
+    """macOS's default is a second native toolkit in a process already running Qt's."""
+    assert _decide(monkeypatch, "macosx", force=False) == ["QtAgg"]
+    assert _decide(monkeypatch, "macosx", force=True) == ["QtAgg"]

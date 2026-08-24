@@ -80,7 +80,7 @@ def require_qt(package: str | None = None, *, extra: str = "gui") -> None:
     require_extra("PySide6", extra, package=package, still_works=STILL_WORKS)
 
 
-def use_qt_backend() -> None:
+def use_qt_backend(*, force: bool = False) -> None:
     """Pin matplotlib to Qt before any figure or canvas is created.
 
     Without this the application inherits the platform default, which on macOS
@@ -90,10 +90,21 @@ def use_qt_backend() -> None:
     "nothing has already bound one" is not something an application can promise
     about its own import order.
 
-    A no-op when a Qt backend is already active, so calling it twice is safe and
-    so an explicit ``MPLBACKEND=Agg`` -- which is what the headless test plugin
-    sets -- is left alone rather than being overridden into a window nobody can
-    see.
+    A no-op when a Qt backend is already active, so calling it twice is safe.
+
+    **``force`` decides what happens under Agg, and both answers are correct.**
+    By default an explicit ``MPLBACKEND=Agg`` -- which is what the headless test
+    plugin sets -- is left alone rather than being overridden into a window
+    nobody can see. That is right for a library: a suite that asked for Agg
+    asked for it.
+
+    It is wrong for an application that wants a real Qt backend *even under
+    test*, so that its tests exercise the configuration it actually ships rather
+    than one they invented by calling ``matplotlib.use("QtAgg")`` themselves.
+    ``eblfrac`` needed exactly that and kept a forked copy of this function to
+    get it, with a docstring explaining that the two requirements are opposite
+    and so it stays local. They are opposite; they are not incompatible. This
+    keyword is what lets one function state both, and it is why that fork can go.
     """
     require_extra(
         "matplotlib",
@@ -103,6 +114,8 @@ def use_qt_backend() -> None:
     import matplotlib
 
     current = matplotlib.get_backend().lower()
-    if "qt" in current or current == "agg":
+    if "qt" in current:
+        return
+    if current == "agg" and not force:
         return
     matplotlib.use("QtAgg")
