@@ -44,8 +44,35 @@ jobs:
               sys.exit(f"installing endstation pulled in: {sorted(extra)}")
           PY
 
+      # A plain probe rather than pytest: this environment is deliberately bare,
+      # and installing pytest to test that nothing was installed would defeat
+      # the job. The same assertion runs under pytest in the `test` job, where a
+      # test runner legitimately exists.
       - name: Import the core on a bare interpreter
-        run: python -m pytest tests/test_core_has_no_dependencies.py -v
+        run: |
+          python - <<'PY'
+          import subprocess, sys
+          CORE = ["endstation", "endstation.optional", "endstation.progress",
+                  "endstation.forms", "endstation.paths"]
+          FORBIDDEN = ("numpy", "scipy", "matplotlib", "PySide6", "PyQt5",
+                       "PyQt6", "pandas", "pydantic", "markdown")
+          failures = []
+          for module in CORE:
+              probe = subprocess.run(
+                  [sys.executable, "-c",
+                   f"import sys, {module}\n"
+                   f"leaked = sorted({{n.split('.')[0] for n in sys.modules}} & set({FORBIDDEN!r}))\n"
+                   "print('\\n'.join(leaked))"],
+                  capture_output=True, text=True)
+              if probe.returncode != 0:
+                  failures.append(f"{module} failed to import:\n{probe.stderr}")
+              elif probe.stdout.split():
+                  failures.append(f"{module} pulled in {', '.join(probe.stdout.split())}")
+              else:
+                  print(f"ok  {module}")
+          if failures:
+              sys.exit("\n".join(failures))
+          PY
 
   test:
     runs-on: ${{ matrix.os }}
