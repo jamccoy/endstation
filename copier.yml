@@ -1,6 +1,6 @@
 # endstation project template.
 #
-#     pipx run copier copy gh:jamccoy/endstation-template my-project
+#     pipx run copier copy gh:jamccoy/endstation my-project
 #
 # Carries what is duplicated across these projects but must not become a
 # runtime dependency: the packaging skeleton, the CI workflow, the headless

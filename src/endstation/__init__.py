@@ -13,14 +13,14 @@ third-party dependencies at all, so a package that declares
 and a Qt binding live behind extras and are imported inside the functions that
 need them:
 
-===========================  ========  ====================================
-Subpackage                   Extra     Needs
-===========================  ========  ====================================
-``endstation.qt``            ``qt``    PySide6, matplotlib
-``endstation.docs``          ``docs``  matplotlib (math), markdown (HTML)
-``endstation.testing``       ``test``  pytest
-``endstation.tools``         --        macOS ``sips``/``iconutil`` at runtime
-===========================  ========  ====================================
+========================  ===========  ====================================
+Subpackage                Extra        Needs
+========================  ===========  ====================================
+``endstation.qt``         ``qt``       PySide6, matplotlib
+``endstation.docs``       ``docs``     matplotlib, for math only
+``endstation.testing``    ``testing``  pytest
+``endstation.tools``      --           macOS ``sips``/``iconutil`` at runtime
+========================  ===========  ====================================
 
 Importing this module must therefore stay cheap and toolkit-free; the names
 re-exported below are from the dependency-free core only. Reach into the
