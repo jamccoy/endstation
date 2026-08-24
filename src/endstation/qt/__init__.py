@@ -95,6 +95,11 @@ def use_qt_backend() -> None:
     sets -- is left alone rather than being overridden into a window nobody can
     see.
     """
+    require_extra(
+        "matplotlib",
+        "qt",
+        still_works="Everything that does not draw works without it.",
+    )
     import matplotlib
 
     current = matplotlib.get_backend().lower()

@@ -6,9 +6,14 @@
 # runtime dependency: the packaging skeleton, the CI workflow, the headless
 # test setup, and the ignore rules.
 
+# Relative to the repository root, which is where copier looks for this file --
+# there is no CLI flag to point it at a subdirectory, so a copier.yml buried in
+# `template/` makes the template unreachable by URL. Found by running the
+# command the README gives, against the published repo.
+#
 # Static, because copier renders this value as a template -- a directory
 # literally named {{project_slug}} would be resolved away before it is looked up.
-_subdirectory: project
+_subdirectory: template/project
 
 project_name:
   type: str

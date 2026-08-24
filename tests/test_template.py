@@ -10,6 +10,7 @@ These render into `tmp_path` and inspect the output. They deliberately do not
 than in a suite that should stay fast.
 """
 
+import warnings
 from pathlib import Path
 
 import pytest
@@ -29,7 +30,10 @@ needs_tomllib = pytest.mark.skipif(
     tomllib is None, reason="tomllib is 3.11+; the text assertions still cover 3.10"
 )
 
-TEMPLATE = Path(__file__).parent.parent / "template"
+#: The repository root -- copier.yml lives there, and `_subdirectory` points
+#: it at `template/project`. Pointing this at `template/` would test a
+#: layout the documented command cannot reach.
+TEMPLATE = Path(__file__).parent.parent
 
 GUI = dict(project_name="Demo App", package_name="demoapp",
            description="A demo", gui=True, research_data=True, min_tests=50)
@@ -39,9 +43,19 @@ LIB = dict(project_name="Demo Lib", package_name="demolib",
 
 
 def render(tmp_path: Path, data: dict) -> Path:
+    """Render the template from the working tree, uncommitted changes included.
+
+    `DirtyLocalWarning` is copier telling us exactly that, and it is what we
+    want: a test that rendered only committed state would pass on a template
+    edit that had not been committed yet, which is precisely when it needs to
+    fail. Suppressed here rather than globally, so `filterwarnings = ["error"]`
+    keeps its teeth everywhere else.
+    """
     target = tmp_path / "rendered"
-    copier.run_copy(str(TEMPLATE), str(target), data=data,
-                    defaults=True, unsafe=True, quiet=True, vcs_ref="HEAD")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", copier.errors.DirtyLocalWarning)
+        copier.run_copy(str(TEMPLATE), str(target), data=data,
+                        defaults=True, unsafe=True, quiet=True, vcs_ref="HEAD")
     return target
 
 

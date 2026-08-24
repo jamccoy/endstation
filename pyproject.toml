@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "endstation"
-version = "0.1.0"
+# Read from `endstation.__version__` rather than restated here. Two literals
+# drift, and the one that drifts is always the one nobody looks at.
+dynamic = ["version"]
 description = "Shared scaffolding for desktop scientific applications: optional-dependency guards, cancellable workers, Qt/matplotlib panes, and macOS app bundling"
 readme = "README.md"
 # 3.10 rather than 3.12: `eblfrac` declares >=3.10 and `gratinglab` >=3.11.
@@ -42,7 +44,14 @@ dependencies = []
 # PySide6 (LGPLv3) rather than PyQt5/PyQt6 (GPL). This package is BSD-3, and an
 # optional, dynamically-linked LGPL dependency keeps it that way -- the same
 # reasoning every project downstream of it already applies to its own GUI extra.
-qt = ["PySide6-Essentials>=6.7"]
+#
+# matplotlib belongs here, not only in `mpl`. `endstation.qt.canvas` embeds a
+# figure and `use_qt_backend` pins the backend, so a `qt` install without it
+# gives a FigurePane that raises on construction -- and raises with a bare
+# ModuleNotFoundError, which is the exact failure this package exists to
+# replace. Declaring it is the fix; `require_extra` in use_qt_backend is the
+# backstop for anyone who installs the pieces by hand.
+qt = ["PySide6-Essentials>=6.7", "matplotlib>=3.8"]
 mpl = ["matplotlib>=3.8"]
 # Rendering documentation needs matplotlib for the equations and nothing else:
 # the markdown subset Qt actually renders is small enough that a full CommonMark
@@ -73,8 +82,17 @@ Homepage = "https://github.com/jamccoy/endstation"
 [project.entry-points.pytest11]
 endstation = "endstation.testing.plugin"
 
+[tool.setuptools.dynamic]
+version = { attr = "endstation.__version__" }
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# PEP 561. Every module here is annotated, and without this marker a consumer's
+# type checker silently ignores all of it -- the annotations exist and do
+# nothing, which is worse than not having them.
+[tool.setuptools.package-data]
+endstation = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

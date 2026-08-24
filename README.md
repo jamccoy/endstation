@@ -151,7 +151,7 @@ runtime dependency, so they live in a [copier](https://copier.readthedocs.io)
 template rather than in the package:
 
 ```bash
-pipx run copier copy gh:jamccoy/endstation my-project --subdirectory template
+pipx run copier copy gh:jamccoy/endstation my-project
 ```
 
 It asks whether the project has a PySide6 window and whether its tests read data
