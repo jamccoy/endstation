@@ -171,7 +171,8 @@ What it carries that is easy to get wrong:
 - No `qt_api` in `[tool.pytest.ini_options]`. It is a pytest-qt option, so
   declaring it makes the suite unrunnable without the toolkit — the plugin
   exports `PYTEST_QT_API` instead.
-- `CLAUDE.md` in `.gitignore` from the first commit.
+- Local working notes ignored from the first commit, as a category, so a
+  scratch file never lands in a published repository by accident.
 
 `tests/test_template.py` renders both variants and inspects the output, so a
 Jinja typo or a `${{ }}` the renderer ate fails here rather than the next time

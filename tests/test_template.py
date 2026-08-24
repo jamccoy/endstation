@@ -161,5 +161,10 @@ def test_no_data_fixture_when_the_project_has_no_data(lib_project):
     assert "skip_without_data" not in (lib_project / "tests/conftest.py").read_text()
 
 
-def test_claude_md_is_ignored_from_the_first_commit(gui_project):
-    assert "CLAUDE.md" in (gui_project / ".gitignore").read_text()
+def test_local_notes_are_ignored_from_the_first_commit(gui_project):
+    """Ignored as a category, so a scratch file cannot land in a published repo.
+
+    Cheaper to get right at generation time than to purge from history later.
+    """
+    ignored = (gui_project / ".gitignore").read_text()
+    assert "*.local.md" in ignored
