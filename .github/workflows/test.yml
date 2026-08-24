@@ -30,6 +30,7 @@ jobs:
         run: python -m pip install -e .
 
       - name: Confirm nothing third-party came with it
+        shell: bash
         run: |
           python - <<'PY'
           import subprocess, sys, json
@@ -49,6 +50,7 @@ jobs:
       # the job. The same assertion runs under pytest in the `test` job, where a
       # test runner legitimately exists.
       - name: Import the core on a bare interpreter
+        shell: bash
         run: |
           python - <<'PY'
           import subprocess, sys
@@ -131,6 +133,7 @@ jobs:
       - name: Confirm the GUI toolkit installed
         env:
           QT_QPA_PLATFORM: offscreen
+        shell: bash
         run: |
           python -W error -c "
           import matplotlib, PySide6
@@ -139,26 +142,59 @@ jobs:
           print('PySide6', PySide6.__version__, '| matplotlib', matplotlib.__version__)
           "
 
+      # `coverage run -m pytest`, not `pytest --cov`. This package registers a
+      # pytest11 entry point, and pytest imports entry-point plugins before its
+      # own conftest -- so under `--cov` the whole dependency-free core is
+      # already imported before coverage starts recording, and reports as
+      # uncovered. See the comment in pyproject.toml. -rs prints skip reasons,
+      # which the next step reads.
       - name: Run tests
-        run: python -m pytest -v --durations=10
+        shell: bash
+        run: python -m coverage run -m pytest -v -rs --durations=10 2>&1 | tee result.txt
 
-      # The suite is small enough that a silent collapse would not be obvious
-      # from a green tick. If the Qt tests start skipping because the toolkit
-      # stopped installing, this is what says so.
+      - name: Coverage
+        shell: bash
+        run: python -m coverage report
+
+      # What the old "at least 130 tests passed" floor was actually reaching
+      # for, said directly. A number answers the question badly: it tolerated a
+      # 30% collapse, and it needed raising by hand every time the suite grew,
+      # so it only ever rotted downward.
+      #
+      # The failure it exists to catch is the Qt tests skipping because the
+      # toolkit stopped installing -- every one of them guards itself with
+      # `importorskip`, which turns a broken install into a quietly smaller
+      # suite rather than a red run. This job installs `.[dev]`, so the toolkit
+      # is meant to be present and that skip reason must not appear.
       - name: Confirm the suite did not quietly shrink
+        shell: bash
         run: |
-          python -m pytest -q -rs 2>&1 | tee result.txt
           python - <<'PY'
           import re, sys
           text = open("result.txt").read()
+          problems = []
+
+          if "the qt extra is not installed" in text:
+              problems.append(
+                  "Qt tests skipped in a job that installs .[dev]; "
+                  "the toolkit did not install. QT_DEBUG_PLUGINS=1 names the "
+                  "missing library."
+              )
+
+          # A backstop against total collection failure, not a coverage proxy.
+          # Deliberately far below the real count so it never needs editing.
           match = re.search(r"(\d+) passed", text)
           passed = int(match.group(1)) if match else 0
           print(f"{passed} passed")
-          if passed < 130:
-              sys.exit(f"only {passed} tests passed; expected at least 130")
+          if passed < 100:
+              problems.append(f"only {passed} tests passed; collection looks broken")
+
+          if problems:
+              sys.exit("\n".join(problems))
           PY
 
       - name: Check the public API imports
+        shell: bash
         run: |
           python -c "
           import endstation
