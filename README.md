@@ -61,16 +61,16 @@ must not raise its consumers' floor.
 
 ## Install
 
-Not on PyPI yet, so consumers install from git:
+From PyPI, from 0.2.0 on:
 
 ```bash
-pip install "endstation[qt] @ git+https://github.com/jamccoy/endstation.git"
+pip install "endstation[qt]"
 ```
 
-Pin a tag for anything that matters:
+Or straight from git, pinning a tag for anything that matters:
 
 ```bash
-pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.1.0"
+pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.2.0"
 ```
 
 For work on endstation itself:
