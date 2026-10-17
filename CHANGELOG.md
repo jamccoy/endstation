@@ -10,6 +10,11 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+## 0.2.0
+
+First release on PyPI. 0.1.0 was tagged but never published, because the tag
+predates `publish.yml`, so `pip install endstation` starts here.
+
 ### Added
 
 - `use_qt_backend(force=False)`. With `force=True` the Qt backend is selected
