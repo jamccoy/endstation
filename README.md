@@ -1,5 +1,12 @@
 # endstation
 
+[![PyPI](https://img.shields.io/pypi/v/endstation)](https://pypi.org/project/endstation/)
+[![Python](https://img.shields.io/pypi/pyversions/endstation)](https://pypi.org/project/endstation/)
+[![tests](https://github.com/jamccoy/endstation/actions/workflows/test.yml/badge.svg)](https://github.com/jamccoy/endstation/actions/workflows/test.yml)
+[![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue)](https://github.com/jamccoy/endstation/blob/master/LICENSE)
+
+**[PyPI](https://pypi.org/project/endstation/)** · **[Changelog](https://github.com/jamccoy/endstation/blob/master/CHANGELOG.md)** · **[Issues](https://github.com/jamccoy/endstation/issues)**
+
 Shared scaffolding for desktop scientific applications.
 
 It is not a science library. It covers what surrounds an analysis: guarding
