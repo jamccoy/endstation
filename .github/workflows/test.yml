@@ -165,9 +165,19 @@ jobs:
           PYTHONWARNDEFAULTENCODING: "1"
         run: python -m coverage run -m pytest -v -rs --durations=10 2>&1 | tee result.txt
 
+      # make_app builds macOS .app bundles and its tests skip everywhere else,
+      # so off macOS it is 113 statements nobody can run, and counting them
+      # pulled Linux and Windows to 73% against the 78% ratchet. Leave it out
+      # there rather than lower the ratchet; macOS still measures it, and is
+      # the leg that keeps it honest.
       - name: Coverage
         shell: bash
-        run: python -m coverage report
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            python -m coverage report
+          else
+            python -m coverage report --omit='*/endstation/tools/make_app.py'
+          fi
 
       # What the old "at least 130 tests passed" floor was actually reaching
       # for, said directly. A number answers the question badly: it tolerated a

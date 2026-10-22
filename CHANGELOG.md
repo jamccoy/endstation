@@ -10,6 +10,8 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+## 0.2.2
+
 ### Fixed
 
 - `endstation-publish-wiki` works on Windows. It read and wrote pages in the
@@ -28,6 +30,9 @@ Versions are read from `endstation.__version__`.
 - CI runs the suite on Windows as well, and every test run sets
   `PYTHONWARNDEFAULTENCODING=1`, so a text read or write with no encoding fails
   on every OS rather than only where the default is not UTF-8.
+- Coverage leaves out `make_app.py` except on macOS, the only platform where
+  its tests run. Off macOS it held the total at 73% against the 78% floor, so
+  CI had been red on Linux since 0.2.0. The floor is unchanged.
 
 ## 0.2.1
 
