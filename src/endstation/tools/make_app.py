@@ -138,7 +138,8 @@ def build_app(
     template = {"thin": THIN_STUB, "logging": LOGGING_STUB}[stub]
     executable = contents / "MacOS" / app.stem
     executable.write_text(
-        template.format(launcher=app.launcher, stem=app.stem, name=app.name)
+        template.format(launcher=app.launcher, stem=app.stem, name=app.name),
+        encoding="utf-8",
     )
     executable.chmod(0o755)
 
@@ -179,7 +180,10 @@ def check_app(bundle: Path) -> list[str]:
         if not os.access(executable, os.X_OK):
             problems.append(f"Contents/MacOS/{stem} is not executable")
         # The stub names its launcher; check that it still exists.
-        for line in executable.read_text().splitlines():
+        # Lenient: the stub is ours, but a bundle can be edited by hand, and a
+        # check that crashes on a stray byte reports nothing at all.
+        text = executable.read_text(encoding="utf-8", errors="replace")
+        for line in text.splitlines():
             if line.startswith(('exec "', 'LAUNCHER="')):
                 target = line.split('"')[1]
                 if not Path(target).exists():

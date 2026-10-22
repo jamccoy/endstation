@@ -12,9 +12,9 @@ from endstation.docs.mathtext import split_segments, strip_boxed
 
 @pytest.fixture
 def docs(tmp_path):
-    (tmp_path / "overview.md").write_text("# Overview\n\nStart here.")
-    (tmp_path / "icc-correction.md").write_text("# ICC correction\n\nWhy.")
-    (tmp_path / "untitled.md").write_text("no heading at all")
+    (tmp_path / "overview.md").write_text("# Overview\n\nStart here.", encoding="utf-8")
+    (tmp_path / "icc-correction.md").write_text("# ICC correction\n\nWhy.", encoding="utf-8")
+    (tmp_path / "untitled.md").write_text("no heading at all", encoding="utf-8")
     return tmp_path
 
 

@@ -10,6 +10,25 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+### Fixed
+
+- `endstation-publish-wiki` works on Windows. It read and wrote pages in the
+  locale encoding, cp1252 there, and failed on the first UTF-8 page with
+  `UnicodeDecodeError: 'charmap' codec can't decode byte 0x81`. Pages are now
+  read as UTF-8, a page saved in cp1252 is accepted rather than refused, and
+  everything is written as UTF-8.
+- `endstation.testing.boundary` decodes its probe interpreter's output as UTF-8
+  and tells the probe to write UTF-8, so it no longer raises `EncodingWarning`
+  in a suite that turns warnings into errors.
+- `endstation-app` writes its launcher stub as UTF-8 and reads it back
+  leniently in `check_app`.
+
+### Changed
+
+- CI runs the suite on Windows as well, and every test run sets
+  `PYTHONWARNDEFAULTENCODING=1`, so a text read or write with no encoding fails
+  on every OS rather than only where the default is not UTF-8.
+
 ## 0.2.1
 
 ### Changed

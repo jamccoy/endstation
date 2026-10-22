@@ -20,7 +20,7 @@ SRC = Path(__file__).parent.parent / "src" / "endstation"
 
 @pytest.fixture(scope="module")
 def config():
-    return tomllib.loads(PYPROJECT.read_text())
+    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
 
 
 def _imports_under(subpackage: str) -> set[str]:
@@ -36,7 +36,7 @@ def _imports_under(subpackage: str) -> set[str]:
     pattern = re.compile(r"^\s*(?:from|import)\s+(matplotlib|PySide6|numpy|shiboken6)\b",
                          re.MULTILINE)
     for path in (SRC / subpackage).rglob("*.py"):
-        found.update(pattern.findall(path.read_text()))
+        found.update(pattern.findall(path.read_text(encoding="utf-8")))
     return found
 
 
@@ -111,14 +111,14 @@ def test_copier_finds_the_template_where_a_url_points(config):
 
     import yaml
 
-    spec = yaml.safe_load((root / "copier.yml").read_text())
+    spec = yaml.safe_load((root / "copier.yml").read_text(encoding="utf-8"))
     subdirectory = spec["_subdirectory"]
     assert (root / subdirectory).is_dir(), f"_subdirectory {subdirectory!r} does not exist"
 
 
 def test_the_readme_documents_a_command_that_resolves():
     """The README's copier line must not name a flag copier does not have."""
-    readme = (PYPROJECT.parent / "README.md").read_text()
+    readme = (PYPROJECT.parent / "README.md").read_text(encoding="utf-8")
     line = next(x for x in readme.splitlines() if "copier copy" in x)
     assert "--subdirectory" not in line, (
         "copier has no --subdirectory flag; the mechanism is _subdirectory in copier.yml"
@@ -136,7 +136,7 @@ def test_the_release_workflow_uses_no_api_token():
     environment dump. OIDC has none of those properties: GitHub attests that
     this workflow produced these artifacts and PyPI accepts that.
     """
-    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "id-token: write" in workflow, "OIDC permission is the mechanism"
     assert "secrets.PYPI" not in workflow, "no API token should be referenced"
     assert "password:" not in workflow
@@ -148,13 +148,13 @@ def test_the_release_workflow_checks_the_tag_against_the_version():
     Tagging v0.2.0 on a package that still says 0.1.0 publishes the wrong thing
     under a name nobody can take back.
     """
-    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "does not match the built version" in workflow
 
 
 def test_the_release_workflow_builds_before_it_publishes():
     """Publish the artifact that was checked, not a second build of the source."""
-    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text()
+    workflow = (PYPROJECT.parent / ".github/workflows/publish.yml").read_text(encoding="utf-8")
     assert "twine check" in workflow
     assert "upload-artifact" in workflow and "download-artifact" in workflow
 
@@ -174,7 +174,7 @@ def test_every_heredoc_step_declares_bash():
     import yaml
 
     workflow = yaml.safe_load(
-        (PYPROJECT.parent / ".github/workflows/test.yml").read_text()
+        (PYPROJECT.parent / ".github/workflows/test.yml").read_text(encoding="utf-8")
     )
     missing = [
         f"{job}/{step.get('name', '?')}"
@@ -200,7 +200,7 @@ def test_coverage_is_measured_by_coverage_run_not_pytest_cov():
     import yaml
 
     workflow = yaml.safe_load(
-        (PYPROJECT.parent / ".github/workflows/test.yml").read_text()
+        (PYPROJECT.parent / ".github/workflows/test.yml").read_text(encoding="utf-8")
     )
     # The commands only. `--cov` appears in the comments above them, saying
     # exactly this -- and a test that read the raw file would fail on its own
