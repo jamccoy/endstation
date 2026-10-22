@@ -59,6 +59,13 @@ package should not raise its consumers' floor.
 pip install "endstation[qt]"
 ```
 
+With [uv](https://docs.astral.sh/uv/), the same extras work:
+
+```bash
+uv pip install "endstation[qt]"    # into the active environment
+uv add endstation                  # as a dependency of a uv project
+```
+
 Or from git, pinned to a tag:
 
 ```bash
