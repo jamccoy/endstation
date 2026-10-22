@@ -5,7 +5,7 @@ to know what to generate, a test needs to check the set is current, and a CLI
 ``--explain`` should be able to print the same prose the window shows. None of
 those should need a GUI installed.
 
-**Ordering is explicit, not alphabetical.** A reader should meet the overview
+Ordering is explicit, not alphabetical. A reader should meet the overview
 before the correction it motivates, and alphabetical ordering puts
 ``facet-fitting`` before ``overview`` for no reason anyone can defend. A page
 listed in the order but missing from disk is skipped rather than raising -- a
@@ -13,7 +13,7 @@ half-written set should not stop a window opening -- and a page found on disk
 but absent from the order is appended, so adding a file does not also require
 registering it in a second place.
 
-**A missing directory degrades to an explanatory entry.** Pages that live at
+A missing directory degrades to an explanatory entry. Pages that live at
 the repository root ship in a checkout and not in a wheel; pages shipped as
 package data ship in both. Either is a legitimate arrangement, but a Help menu
 that silently loses half its items when installed is not -- so an unavailable

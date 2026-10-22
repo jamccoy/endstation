@@ -10,13 +10,13 @@ turning those bytes into an embeddable image needs a real document.
 
 Three things worth knowing before touching this file.
 
-**Splitting happens before any escaping.** Real documentation contains math
+Splitting happens before any escaping. Real documentation contains math
 spans holding ``<`` and ``>`` -- ``$t < w$``, ``$\zeta < \theta_c$``,
 ``$k > 0$``. Escaping first would hand mathtext the string ``t &lt; w``, which
 it renders literally. So :func:`split_segments` runs on the raw source and only
 the *text* spans are escaped afterwards; the LaTeX never is.
 
-**``\boxed{...}`` is not supported by mathtext.** It raises ``ValueError``
+``\boxed{...}`` is not supported by mathtext. It raises ``ValueError``
 wrapping a ``ParseFatalException``. :func:`strip_boxed` removes the wrapper by
 counting braces rather than by regex, because the boxed content itself contains
 nested braces -- ``\boxed{\;G_m = \int_0^1 e^{i\Phi_m(t)}\,dt\;}`` -- and a
@@ -25,7 +25,7 @@ greedy, swallow past the intended end. The visual rectangle is not reproduced;
 the equation still renders correctly and reads as its own centred line, which is
 the part that matters.
 
-**A render failure degrades, it does not crash the viewer.**
+A render failure degrades, it does not crash the viewer.
 :func:`render_math_png` returns ``None`` rather than propagating the parser's
 exception, so one unsupported macro in a future edit shows as visible raw source
 for that one span -- diagnosable at a glance -- rather than taking down the

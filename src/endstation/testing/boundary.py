@@ -5,7 +5,7 @@ tested without a display. That is a promise, and a promise nothing checks is a
 convention -- it survives exactly until someone needs "just a QColor" in a
 module that was pure, and the headless tests quietly stop running.
 
-**A subprocess import, not an AST scan.** Both forms existed across the
+A subprocess import, not an AST scan. Both forms existed across the
 projects this was drawn from, and the subprocess one is strictly better: it
 catches *transitive* imports. A pure module that grows an innocent import of
 something which itself pulls in Qt passes a source scan and fails here, which is
@@ -46,7 +46,7 @@ def modules_in(
     ``exclude`` names subpackages to skip, as dotted prefixes. The widget layer
     is the obvious one: it is *supposed* to import a toolkit.
 
-    **Walks the filesystem rather than using ``pkgutil.walk_packages``.** That
+    Walks the filesystem rather than using ``pkgutil.walk_packages``. That
     function imports each subpackage in order to read its ``__path__``, which
     would defeat the purpose twice over: the caller is about to import these in
     *fresh interpreters* precisely to see what each one drags in, and a

@@ -8,17 +8,17 @@ and the one people read is the one nobody edits.
 
 Two differences between the formats, and both are handled here:
 
-**Wiki links carry no extension.** ``[Install](Installation.md)`` resolves in a
+Wiki links carry no extension. ``[Install](Installation.md)`` resolves in a
 repository browser and 404s in a wiki, where it must be
 ``[Install](Installation)``. The rewrite is confined to links pointing at a page
 being published -- an external URL or a link to a file that is not a wiki page
 is left exactly as written.
 
-**Wiki page names are their filenames**, with hyphens shown as spaces. So
+Wiki page names are their filenames, with hyphens shown as spaces. So
 ``Getting-Started.md`` becomes the page "Getting Started". Nothing is renamed
 here; the filenames in ``docs/`` are the page names.
 
-**This never commits and never pushes.** It writes files into a checkout and
+This never commits and never pushes. It writes files into a checkout and
 stops, so the diff can be read before anything is published. Publishing docs is
 outward-facing, and a tool that did it in one step would eventually do it by
 accident.
@@ -78,7 +78,7 @@ def publish(docs: Path, wiki: Path, *, dry_run: bool = False) -> list[Path]:
     for source in sources:
         target = wiki / source.name
         text = rewrite_links(source.read_text(), pages)
-        # Compare before writing so the return value means "actually differs",
+        # Compare before writing so the return value means "differs",
         # which is what makes a dry run worth reading.
         if target.exists() and target.read_text() == text:
             continue

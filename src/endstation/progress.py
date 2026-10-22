@@ -13,7 +13,7 @@ The protocol is one callback::
 
 called as work completes, with ``done`` rising to ``total``.
 
-**Cancellation needs no return-value protocol.** A callback that wants to stop
+Cancellation needs no return-value protocol. A callback that wants to stop
 the work simply raises -- :class:`Cancelled` by convention -- and the loops let
 it propagate. That is why every :func:`report` call site should sit directly in
 the loop rather than inside a ``try``: swallowing an exception from a progress
@@ -50,7 +50,7 @@ class Cancelled(Exception):
     old behaviour in which cancelling stopped only the waiting.
 
     Derives from :class:`Exception` rather than :class:`BaseException`
-    deliberately. It crosses ordinary application code that is entitled to run
+    on purpose. It crosses ordinary application code that is entitled to run
     ``finally`` blocks and close files on the way out; ``BaseException`` is for
     conditions that should skip that, and this is not one.
     """
@@ -78,7 +78,7 @@ def throttled(
     drive a bar with ~100 distinguishable states, and the updates it drops are
     the ones nobody could have seen.
 
-    **Only the reporting is throttled.** The wrapper calls the inner callback on
+    Only the reporting is throttled. The wrapper calls the inner callback on
     every step where the bucket changes, but a caller that also checks for
     cancellation must do so on *every* call, unthrottled -- otherwise a Cancel
     click lands at the next percent rather than the next unit of work. That is
@@ -120,7 +120,7 @@ def cancelling(
         report = cancelling(throttled(on_progress), event.is_set)
 
     Reporting happens before the check so the bar shows the last completed unit
-    rather than freezing one step short of where the work actually stopped.
+    rather than freezing one step short of where the work stopped.
     """
 
     def report_and_check(done: int, total: int) -> None:

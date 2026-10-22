@@ -9,14 +9,14 @@ The contract is narrow on purpose:
   callable, so it stops at the next reported step rather than running to
   completion and throwing the result away.
 
-**Built on ``QThreadPool``/``QRunnable`` rather than a hand-managed
-``QThread``.** The QThread version aborted the interpreter when jobs ran back
+Built on ``QThreadPool``/``QRunnable`` rather than a hand-managed
+``QThread``. The QThread version aborted the interpreter when jobs ran back
 to back: the thread and its worker were being collected while the thread was
 still finishing, which is a crash rather than an exception and so is not
 something a front-end can defend against. Letting Qt own the thread lifetime
 removes that class of bug outright.
 
-**Both cancellation mechanisms are here, and they are not redundant.** Raising
+Both cancellation mechanisms are here, and they are not redundant. Raising
 through the progress callback stops the *work*. The monotonic token
 (:mod:`endstation.qt.tokens`) recognises a result that was already in flight
 when Cancel was clicked and must not be rendered. Real cancellation does not
@@ -98,7 +98,7 @@ class Job(QRunnable):
         flag, which the progress callback reads on the worker thread. A bool
         assignment needs no lock.
 
-        **A request, not a guarantee.** The flag is read at the next progress
+        A request, not a guarantee. The flag is read at the next progress
         report, so a job that finishes first emits ``finished`` and not
         ``cancelled`` -- cancelling cannot un-finish completed work. That is
         invisible on the multi-second operations this exists for, but it means
@@ -130,7 +130,7 @@ class Job(QRunnable):
             result = self._fn(*self._args, **kwargs)
         except Cancelled:
             self.signals.cancelled.emit()
-        except Exception as exc:  # noqa: BLE001 - deliberately broad, see below
+        except Exception as exc:  # noqa: BLE001 - broad on purpose, see below
             # A Python exception escaping a slot under PySide6 does not surface
             # as a friendly dialog: depending on version and excepthook state it
             # prints a traceback and aborts the process. Turning any failure

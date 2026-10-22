@@ -9,27 +9,27 @@ documentation puts the evidence *in* the tables -- an angle-convention
 reconciliation, an errata list, a three-way comparison -- and those are the
 content, in the one place a reader goes to understand what the software does.
 
-**No markdown dependency.** The subset Qt renders is small enough that a full
+No markdown dependency. The subset Qt renders is small enough that a full
 CommonMark implementation would mostly be output this cannot use, and the
 conversion has to interleave with math extraction anyway (see below). This
 handles headings, paragraphs, bullet and numbered lists, tables, fenced and
-inline code, bold, italic, links, block quotes and rules -- which is what the
-pages actually contain.
+inline code, bold, italic, links, block quotes and rules, which is what the
+pages contain.
 
 Three things worth knowing before editing:
 
-**Math is split out before anything is escaped.** Math spans in real pages
+Math is split out before anything is escaped. Math spans in real pages
 contain ``<`` and ``>``. Escaping first would hand mathtext ``t &lt; w``, which
 it renders literally. So :func:`~endstation.docs.mathtext.split_segments` runs
 on the raw source and only the *text* spans are escaped.
 
-**Images are referenced by key, not embedded.** ``QTextDocument.loadResource``
+Images are referenced by key, not embedded. ``QTextDocument.loadResource``
 does not handle ``data:`` URLs, so each rendered equation gets an
 ``endstation-math:N`` src and the viewer registers the bytes with
 ``addResource``. That also keeps this module free of base64 padding it would
 only have to undo.
 
-**A render failure degrades rather than crashing.** The raw ``$...$`` source
+A render failure degrades rather than crashing. The raw ``$...$`` source
 appears in a distinct colour, so a future edit using an unsupported macro is
 diagnosable at a glance instead of taking down the page.
 """

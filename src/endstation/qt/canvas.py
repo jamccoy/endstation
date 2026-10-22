@@ -3,19 +3,19 @@
 Three things, each of which existed in four or more copies across the projects
 this was drawn from:
 
-**The placeholder.** An empty axes with centred grey text, for the state before
+The placeholder. An empty axes with centred grey text, for the state before
 anything has been computed. Six lines, written out four times in one repository
 alone, and the reason a fresh window looked broken in one tab and explained
 itself in another.
 
-**The refusal.** The same idea in a different colour, for work that was
+The refusal. The same idea in a different colour, for work that was
 correctly declined -- settings that cannot tile, a geometry with no propagating
 orders. Rendering a refusal as an error dialog is a category mistake: the
 software did the right thing, and the user needs to read why, not dismiss a
 box. Keeping it on the canvas puts the explanation where the result would have
 been.
 
-**The visibility gate.** A figure in a hidden tab still repaints on every
+The visibility gate. A figure in a hidden tab still repaints on every
 redraw request. Cheap for one line plot, not cheap for a coverage raster or a
 3-D layout, and entirely wasted -- nobody is looking. :meth:`FigurePane.draw`
 defers to the next ``showEvent`` instead.

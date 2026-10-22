@@ -92,14 +92,14 @@ def use_qt_backend(*, force: bool = False) -> None:
 
     A no-op when a Qt backend is already active, so calling it twice is safe.
 
-    **``force`` decides what happens under Agg, and both answers are correct.**
+    ``force`` decides what happens under Agg, and both answers are correct.
     By default an explicit ``MPLBACKEND=Agg`` -- which is what the headless test
     plugin sets -- is left alone rather than being overridden into a window
     nobody can see. That is right for a library: a suite that asked for Agg
     asked for it.
 
     It is wrong for an application that wants a real Qt backend *even under
-    test*, so that its tests exercise the configuration it actually ships rather
+    test*, so that its tests exercise the configuration it ships rather
     than one they invented by calling ``matplotlib.use("QtAgg")`` themselves.
     ``eblfrac`` needed exactly that and kept a forked copy of this function to
     get it, with a docstring explaining that the two requirements are opposite

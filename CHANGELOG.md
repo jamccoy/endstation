@@ -10,6 +10,15 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+## 0.2.1
+
+### Changed
+
+- The README, which is the PyPI page, is rewritten in plainer prose: no em
+  dashes, and the install, publishing and template notes say what they do
+  without the pitch. The docstrings lose their bold paragraph leads and a few
+  stock phrases. No code or interface changed.
+
 ## 0.2.0
 
 First release on PyPI. 0.1.0 was tagged but never published, because the tag
