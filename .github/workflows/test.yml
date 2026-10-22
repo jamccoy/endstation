@@ -36,7 +36,7 @@ jobs:
           import subprocess, sys, json
           out = subprocess.run([sys.executable, "-m", "pip", "list",
                                 "--format=json", "--not-required"],
-                               capture_output=True, text=True).stdout
+                               capture_output=True, encoding="utf-8").stdout
           names = {p["name"].lower() for p in json.loads(out)}
           allowed = {"endstation", "pip", "setuptools", "wheel"}
           extra = names - allowed
@@ -65,7 +65,7 @@ jobs:
                    f"import sys, {module}\n"
                    f"leaked = sorted({{n.split('.')[0] for n in sys.modules}} & set({FORBIDDEN!r}))\n"
                    "print('\\n'.join(leaked))"],
-                  capture_output=True, text=True)
+                  capture_output=True, encoding="utf-8", errors="replace")
               if probe.returncode != 0:
                   failures.append(f"{module} failed to import:\n{probe.stderr}")
               elif probe.stdout.split():
@@ -87,6 +87,12 @@ jobs:
           # One macOS run: it is the development platform, and it is the only
           # one where the .app builder does anything at all.
           - os: macos-latest
+            python-version: "3.12"
+          # One Windows run. Nothing here is Windows-specific, which is exactly
+          # how it broke there: a text read with no encoding uses the locale,
+          # cp1252 on Windows, and `endstation-publish-wiki` died on the first
+          # UTF-8 page gratinglab gave it.
+          - os: windows-latest
             python-version: "3.12"
 
     name: ${{ matrix.os }} / py${{ matrix.python-version }}
@@ -148,8 +154,15 @@ jobs:
       # already imported before coverage starts recording, and reports as
       # uncovered. See the comment in pyproject.toml. -rs prints skip reasons,
       # which the next step reads.
+      # PYTHONWARNDEFAULTENCODING makes every open(), read_text() and
+      # subprocess text=True that leaves out its encoding raise an
+      # EncodingWarning, and pyproject's `filterwarnings = ["error"]` turns that
+      # into a failure. So the cp1252 fault fails on Linux and macOS too, where
+      # the default happens to be UTF-8 and the bug is otherwise invisible.
       - name: Run tests
         shell: bash
+        env:
+          PYTHONWARNDEFAULTENCODING: "1"
         run: python -m coverage run -m pytest -v -rs --durations=10 2>&1 | tee result.txt
 
       - name: Coverage
@@ -171,7 +184,7 @@ jobs:
         run: |
           python - <<'PY'
           import re, sys
-          text = open("result.txt").read()
+          text = open("result.txt", encoding="utf-8", errors="replace").read()
           problems = []
 
           if "the qt extra is not installed" in text:
@@ -195,8 +208,10 @@ jobs:
 
       - name: Check the public API imports
         shell: bash
+        env:
+          PYTHONWARNDEFAULTENCODING: "1"
         run: |
-          python -c "
+          python -W error::EncodingWarning -c "
           import endstation
           from endstation import require_extra, Cancelled, ErrorCollector, find_data
           from endstation.qt.jobs import JobRunner

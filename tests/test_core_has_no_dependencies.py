@@ -43,7 +43,8 @@ def test_core_module_pulls_in_no_third_party_package(module):
     probe = subprocess.run(
         [sys.executable, "-c", _PROBE.format(module=module, forbidden=FORBIDDEN)],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     # `check=True` would surface a CalledProcessError whose repr buries the one
     # fact that matters. Assert on the output instead, so a failure reads as the

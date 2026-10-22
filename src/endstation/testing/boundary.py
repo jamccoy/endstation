@@ -19,6 +19,7 @@ CLI".
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -90,7 +91,14 @@ def leaked_imports(module: str, forbidden: Sequence[str]) -> tuple[str, ...]:
         [sys.executable, "-c", _PROBE.format(module=module,
                                              forbidden=tuple(forbidden))],
         capture_output=True,
-        text=True,
+        # Both ends named. The child writes its pipes in the locale encoding
+        # unless told otherwise, which is cp1252 on Windows, and this side
+        # would decode with the same default. Pinning both to UTF-8 keeps a
+        # traceback naming a non-ASCII path readable, and `replace` keeps a
+        # stray byte from turning a failed import into a UnicodeDecodeError.
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     if probe.returncode != 0:
         raise RuntimeError(f"{module} failed to import:\n{probe.stderr}")

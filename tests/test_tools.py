@@ -17,7 +17,7 @@ darwin_only = pytest.mark.skipif(
 @pytest.fixture
 def launcher(tmp_path):
     script = tmp_path / "demo-gui"
-    script.write_text("#!/bin/sh\necho ran\n")
+    script.write_text("#!/bin/sh\necho ran\n", encoding="utf-8")
     script.chmod(0o755)
     return script
 
@@ -98,7 +98,7 @@ def test_plist_carries_the_identity(app, tmp_path):
 def test_the_logging_stub_names_a_log_and_can_alert(app, tmp_path):
     """A .app that fails silently is useless: an icon bounces once, no clue why."""
     bundle = build_app(app, tmp_path, stub="logging")
-    stub = (bundle / "Contents" / "MacOS" / "DemoApp").read_text()
+    stub = (bundle / "Contents" / "MacOS" / "DemoApp").read_text(encoding="utf-8")
     assert "Library/Logs/DemoApp.log" in stub
     assert "osascript" in stub
 
@@ -106,7 +106,7 @@ def test_the_logging_stub_names_a_log_and_can_alert(app, tmp_path):
 @darwin_only
 def test_the_thin_stub_is_just_an_exec(app, tmp_path):
     bundle = build_app(app, tmp_path, stub="thin")
-    stub = (bundle / "Contents" / "MacOS" / "DemoApp").read_text()
+    stub = (bundle / "Contents" / "MacOS" / "DemoApp").read_text(encoding="utf-8")
     assert "exec " in stub
     assert "osascript" not in stub
 
@@ -115,7 +115,7 @@ def test_the_thin_stub_is_just_an_exec(app, tmp_path):
 def test_rebuilding_replaces_rather_than_merges(app, tmp_path):
     bundle = build_app(app, tmp_path)
     stale = bundle / "Contents" / "Resources" / "leftover.txt"
-    stale.write_text("from a previous build")
+    stale.write_text("from a previous build", encoding="utf-8")
     build_app(app, tmp_path)
     assert not stale.exists()
 
@@ -197,19 +197,19 @@ def test_an_image_is_not_treated_as_a_link():
 def test_publish_copies_and_reports_what_changed(tmp_path):
     docs, wiki = tmp_path / "docs", tmp_path / "wiki"
     docs.mkdir(), wiki.mkdir()
-    (docs / "Home.md").write_text("see [Install](Installation.md)")
-    (docs / "Installation.md").write_text("# Installation")
+    (docs / "Home.md").write_text("see [Install](Installation.md)", encoding="utf-8")
+    (docs / "Installation.md").write_text("# Installation", encoding="utf-8")
 
     changed = publish(docs, wiki)
 
     assert {p.name for p in changed} == {"Home.md", "Installation.md"}
-    assert (wiki / "Home.md").read_text() == "see [Install](Installation)"
+    assert (wiki / "Home.md").read_text(encoding="utf-8") == "see [Install](Installation)"
 
 
 def test_publishing_twice_reports_nothing_the_second_time(tmp_path):
     docs, wiki = tmp_path / "docs", tmp_path / "wiki"
     docs.mkdir(), wiki.mkdir()
-    (docs / "Home.md").write_text("# Home")
+    (docs / "Home.md").write_text("# Home", encoding="utf-8")
     publish(docs, wiki)
     assert publish(docs, wiki) == []
 
@@ -217,7 +217,7 @@ def test_publishing_twice_reports_nothing_the_second_time(tmp_path):
 def test_a_dry_run_writes_nothing(tmp_path):
     docs, wiki = tmp_path / "docs", tmp_path / "wiki"
     docs.mkdir(), wiki.mkdir()
-    (docs / "Home.md").write_text("# Home")
+    (docs / "Home.md").write_text("# Home", encoding="utf-8")
 
     changed = publish(docs, wiki, dry_run=True)
 
@@ -225,9 +225,35 @@ def test_a_dry_run_writes_nothing(tmp_path):
     assert not (wiki / "Home.md").exists()
 
 
+def test_utf8_pages_publish_whatever_the_locale(tmp_path):
+    """The 2026-10-21 failure: cp1252 cannot decode 0x81, the tail of UTF-8 Á."""
+    docs, wiki = tmp_path / "docs", tmp_path / "wiki"
+    docs.mkdir(), wiki.mkdir()
+    page = "# Ångström\n\nÁ blaze at λ = 1.5 nm, see [Install](Installation.md)\n"
+    (docs / "Home.md").write_bytes(page.encode("utf-8"))
+    (docs / "Installation.md").write_bytes(b"# Installation\n")
+
+    publish(docs, wiki)
+
+    written = (wiki / "Home.md").read_bytes().decode("utf-8")
+    assert "Á blaze at λ = 1.5 nm" in written
+    assert "[Install](Installation)" in written
+    assert publish(docs, wiki) == []
+
+
+def test_a_cp1252_page_is_published_as_utf8_not_refused(tmp_path):
+    docs, wiki = tmp_path / "docs", tmp_path / "wiki"
+    docs.mkdir(), wiki.mkdir()
+    (docs / "Home.md").write_bytes("# Café – notes\n".encode("cp1252"))
+
+    publish(docs, wiki)
+
+    assert (wiki / "Home.md").read_bytes().decode("utf-8").startswith("# Café – notes")
+
+
 def test_a_missing_wiki_checkout_says_how_to_clone_it(tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "Home.md").write_text("# Home")
+    (docs / "Home.md").write_text("# Home", encoding="utf-8")
     with pytest.raises(SystemExit, match="git clone"):
         publish(docs, tmp_path / "absent.wiki")

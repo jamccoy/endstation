@@ -56,6 +56,28 @@ def rewrite_links(text: str, pages: set[str]) -> str:
     return _LINK.sub(replace, text)
 
 
+def _read(path: Path) -> str:
+    """Read a page as UTF-8, falling back to cp1252 rather than failing.
+
+    The encoding is named because the default is the locale's, which is cp1252
+    on Windows, and a UTF-8 page then fails with ``UnicodeDecodeError`` or
+    decodes into mojibake. The fallback is for a page saved by an editor that
+    still writes the Windows code page: cp1252 decodes every byte but five, so
+    it keeps the text where a strict read would stop the whole publish.
+    Whatever was read is written back as UTF-8, which is what GitHub expects.
+
+    Line endings are folded to ``\\n`` exactly as a text-mode read folds them,
+    so a CRLF checkout of the wiki still compares equal to an LF ``docs/``.
+    """
+    raw = path.read_bytes()
+    try:
+        # -sig: a byte order mark is dropped rather than published as text.
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("cp1252", errors="replace")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def publish(docs: Path, wiki: Path, *, dry_run: bool = False) -> list[Path]:
     """Copy every ``docs/*.md`` into ``wiki``, rewriting links. Returns what changed."""
     docs, wiki = Path(docs), Path(wiki)
@@ -77,14 +99,14 @@ def publish(docs: Path, wiki: Path, *, dry_run: bool = False) -> list[Path]:
 
     for source in sources:
         target = wiki / source.name
-        text = rewrite_links(source.read_text(), pages)
+        text = rewrite_links(_read(source), pages)
         # Compare before writing so the return value means "differs",
         # which is what makes a dry run worth reading.
-        if target.exists() and target.read_text() == text:
+        if target.exists() and _read(target) == text:
             continue
         changed.append(target)
         if not dry_run:
-            target.write_text(text)
+            target.write_text(text, encoding="utf-8")
 
     return changed
 

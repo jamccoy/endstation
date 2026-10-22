@@ -91,7 +91,7 @@ def test_discovery_imports_nothing_it_finds():
          "from endstation.testing.boundary import modules_in\n"
          "modules_in('endstation')\n"
          "assert 'endstation.docs.mathtext' not in sys.modules, 'discovery imported it'\n"],
-        capture_output=True, text=True,
+        capture_output=True, encoding="utf-8", errors="replace",
     )
     assert probe.returncode == 0, probe.stderr
 

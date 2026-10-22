@@ -108,7 +108,14 @@ endstation = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # CI sets PYTHONWARNDEFAULTENCODING=1, so every text read or write that
+    # leaves its encoding to the locale fails the suite on every OS rather
+    # than only on Windows, where the locale is cp1252. matplotlib's font cache
+    # is the one site outside this package; it is matplotlib's to fix.
+    "ignore::EncodingWarning:matplotlib",
+]
 # No `qt_api` here on purpose: it is a pytest-qt option, and this suite has
 # to run in an environment that has never installed a toolkit. The plugin
 # exports PYTEST_QT_API instead, which pytest-qt honours and which costs

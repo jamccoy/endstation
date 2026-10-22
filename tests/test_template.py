@@ -92,13 +92,13 @@ def test_both_variants_carry_the_essentials(gui_project, lib_project):
 
 
 def test_generated_pyproject_parses(gui_project):
-    data = tomllib.loads((gui_project / "pyproject.toml").read_text())
+    data = tomllib.loads((gui_project / "pyproject.toml").read_text(encoding="utf-8"))
     assert data["project"]["name"] == "demo_app"
     assert "endstation>=0.1" in data["project"]["dependencies"]
 
 
 def test_the_entry_point_uses_the_import_name(gui_project):
-    data = tomllib.loads((gui_project / "pyproject.toml").read_text())
+    data = tomllib.loads((gui_project / "pyproject.toml").read_text(encoding="utf-8"))
     assert data["project"]["gui-scripts"]["demoapp-gui"] == "demoapp.gui:main"
 
 
@@ -112,7 +112,7 @@ def test_a_window_is_declared_under_gui_scripts(gui_project):
     asserting: nobody would notice the regression until they ran the app on a
     platform they rarely boot.
     """
-    data = tomllib.loads((gui_project / "pyproject.toml").read_text())
+    data = tomllib.loads((gui_project / "pyproject.toml").read_text(encoding="utf-8"))
     assert "gui-scripts" in data["project"]
     assert "scripts" not in data["project"], (
         "a windowed application declared under `scripts` shows a console on Windows"
@@ -120,19 +120,19 @@ def test_a_window_is_declared_under_gui_scripts(gui_project):
 
 
 def test_the_gui_extra_exists_only_when_asked_for(gui_project, lib_project):
-    gui = tomllib.loads((gui_project / "pyproject.toml").read_text())
-    lib = tomllib.loads((lib_project / "pyproject.toml").read_text())
+    gui = tomllib.loads((gui_project / "pyproject.toml").read_text(encoding="utf-8"))
+    lib = tomllib.loads((lib_project / "pyproject.toml").read_text(encoding="utf-8"))
     assert "gui" in gui["project"]["optional-dependencies"]
     assert "gui" not in lib["project"]["optional-dependencies"]
 
 
 def test_qt_api_is_not_declared_in_pytest_options(gui_project):
     """It is a pytest-qt option; declaring it makes the suite need the toolkit."""
-    assert "qt_api =" not in (gui_project / "pyproject.toml").read_text()
+    assert "qt_api =" not in (gui_project / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_python_floor_is_carried_into_ruff_target(lib_project):
-    text = (lib_project / "pyproject.toml").read_text()
+    text = (lib_project / "pyproject.toml").read_text(encoding="utf-8")
     assert 'requires-python = ">=3.12"' in text
     assert 'target-version = "py312"' in text
 
@@ -142,7 +142,7 @@ def test_python_floor_is_carried_into_ruff_target(lib_project):
 
 def test_github_expressions_survive_jinja(gui_project):
     """`${{ }}` is Actions syntax, and Jinja is very willing to eat it."""
-    text = (gui_project / ".github/workflows/test.yml").read_text()
+    text = (gui_project / ".github/workflows/test.yml").read_text(encoding="utf-8")
     assert "${{ github.workflow }}" in text
     assert "${{ matrix.python-version }}" in text
     assert "$${{" not in text, "double-dollar means the escaping regressed"
@@ -151,7 +151,7 @@ def test_github_expressions_survive_jinja(gui_project):
 def test_the_workflow_is_valid_yaml(gui_project, lib_project):
     yaml = pytest.importorskip("yaml", reason="pyyaml is not installed")
     for project in (gui_project, lib_project):
-        yaml.safe_load((project / ".github/workflows/test.yml").read_text())
+        yaml.safe_load((project / ".github/workflows/test.yml").read_text(encoding="utf-8"))
 
 
 def test_qt_system_libraries_are_installed_only_for_a_gui_project(
@@ -159,16 +159,16 @@ def test_qt_system_libraries_are_installed_only_for_a_gui_project(
 ):
     assert "libglib2.0-0t64" in (
         gui_project / ".github/workflows/test.yml"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     assert "libglib2.0-0t64" not in (
         lib_project / ".github/workflows/test.yml"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 
 
 def test_the_shrinking_suite_guard_carries_the_threshold(gui_project):
     assert "expected at least 50" in (
         gui_project / ".github/workflows/test.yml"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 
 
 # -- generated python -------------------------------------------------------
@@ -185,16 +185,16 @@ def test_the_shrinking_suite_guard_carries_the_threshold(gui_project):
 def test_generated_python_compiles(gui_project, relative):
     import ast
 
-    ast.parse((gui_project / relative).read_text())
+    ast.parse((gui_project / relative).read_text(encoding="utf-8"))
 
 
 def test_the_data_fixture_names_the_variable(gui_project):
     """A suite that skips silently looks identical to one with no tests."""
-    assert "DEMOAPP_DATA_DIR" in (gui_project / "tests/conftest.py").read_text()
+    assert "DEMOAPP_DATA_DIR" in (gui_project / "tests/conftest.py").read_text(encoding="utf-8")
 
 
 def test_no_data_fixture_when_the_project_has_no_data(lib_project):
-    assert "skip_without_data" not in (lib_project / "tests/conftest.py").read_text()
+    assert "skip_without_data" not in (lib_project / "tests/conftest.py").read_text(encoding="utf-8")
 
 
 def test_local_notes_are_ignored_from_the_first_commit(gui_project):
@@ -202,5 +202,5 @@ def test_local_notes_are_ignored_from_the_first_commit(gui_project):
 
     Cheaper to get right at generation time than to purge from history later.
     """
-    ignored = (gui_project / ".gitignore").read_text()
+    ignored = (gui_project / ".gitignore").read_text(encoding="utf-8")
     assert "*.local.md" in ignored

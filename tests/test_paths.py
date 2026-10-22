@@ -12,17 +12,17 @@ from endstation.paths import (
 
 
 def test_finds_the_marker_walking_up(tmp_path):
-    (tmp_path / "pyproject.toml").write_text("")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     nested = tmp_path / "src" / "pkg" / "sub"
     nested.mkdir(parents=True)
     assert find_project_root(nested) == tmp_path.resolve()
 
 
 def test_a_file_resolves_from_its_directory(tmp_path):
-    (tmp_path / "pyproject.toml").write_text("")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     module = tmp_path / "src" / "mod.py"
     module.parent.mkdir(parents=True)
-    module.write_text("")
+    module.write_text("", encoding="utf-8")
     assert find_project_root(module) == tmp_path.resolve()
 
 
@@ -31,7 +31,7 @@ def test_innermost_marker_wins(tmp_path):
     (tmp_path / ".git").mkdir()
     inner = tmp_path / "vendored"
     inner.mkdir()
-    (inner / "pyproject.toml").write_text("")
+    (inner / "pyproject.toml").write_text("", encoding="utf-8")
     assert find_project_root(inner) == inner.resolve()
 
 
