@@ -125,6 +125,24 @@ def test_the_readme_documents_a_command_that_resolves():
     )
 
 
+def test_the_readme_git_pin_names_the_version_being_released():
+    """The install-from-git example pins a tag, so it goes stale at every
+    release unless the release commit moves it. Fails on the bump commit if the
+    pin was not moved with `__version__`, which is when it is cheap to fix."""
+    import re
+
+    readme = (PYPROJECT.parent / "README.md").read_text(encoding="utf-8")
+    init = (SRC / "__init__.py").read_text(encoding="utf-8")
+    pins = re.findall(r"endstation\.git@v([0-9][^\"'\s]*)", readme)
+    version = re.search(r'^__version__ = "([^"]+)"', init, re.M)
+    assert pins, "the README no longer has a git-pinned install example"
+    assert version is not None
+    assert set(pins) == {version.group(1)}, (
+        f"README pins v{', v'.join(sorted(set(pins)))}; __version__ is "
+        f"{version.group(1)}. Move the pin in the release commit."
+    )
+
+
 # -- release -----------------------------------------------------------------
 
 
