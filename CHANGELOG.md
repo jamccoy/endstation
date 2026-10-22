@@ -10,6 +10,13 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+## 0.2.3
+
+### Changed
+
+- The README shows how to install with uv (`uv pip install` and `uv add`),
+  so PyPI's project page does too. No code changes.
+
 ## 0.2.2
 
 ### Fixed
