@@ -10,6 +10,12 @@ Versions are read from `endstation.__version__`.
 
 ## Unreleased
 
+### Changed
+
+- A test holds the README's install-from-git pin to `__version__`, so a
+  release commit that forgets to move it fails CI instead of publishing a
+  README that pins the previous release.
+
 ## 0.2.3
 
 ### Changed
