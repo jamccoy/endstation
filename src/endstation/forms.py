@@ -5,7 +5,7 @@ and the value of a scientific application is defensible numbers, so parsing and
 validation are kept out of the widgets entirely: a bug in the untested layer
 then produces a wrong *layout*, never a wrong *number*.
 
-**Errors are collected, not raised on the first failure.** A form with three bad
+Errors are collected, not raised on the first failure. A form with three bad
 fields should report three problems, not make the user fix them one at a time
 and rediscover the next one on each attempt. That single decision is why this is
 a data type rather than an exception.
@@ -19,7 +19,7 @@ makes a validation routine usable outside a GUI:
 
 A value outside a spin box's range is therefore reported here and passed through
 verbatim; the clamping belongs in the panel, where the control that enforces the
-range actually lives. Clamping at this layer would make the routine useless to a
+range lives. Clamping at this layer would make the routine useless to a
 caller that has no widget -- a script, a test, or a CLI.
 """
 
@@ -51,7 +51,7 @@ class FieldError:
 class FormErrors(Exception):
     """Every problem found in one pass over a form.
 
-    Both a value and an exception, deliberately. Downstream projects disagree
+    Both a value and an exception, on purpose. Downstream projects disagree
     on which they want -- one returns ``(settings, errors)``, another raises --
     and forcing them to converge would mean rewriting working call sites for no
     behavioural gain. Being both lets each keep its own contract while sharing

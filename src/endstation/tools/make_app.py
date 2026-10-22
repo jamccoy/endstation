@@ -8,7 +8,7 @@ Not a frozen bundle -- no PyInstaller, no embedded interpreter. Three files: a
 plist, a shell stub that execs the console script, and the icon. Enough for a
 Dock icon and a double-clickable launcher, and it rebuilds in a second.
 
-**Two stub generations existed, and both are kept.**
+Two stub generations existed, and both are kept.
 
 ``thin`` is a two-line ``exec``. Smallest thing that works.
 
@@ -20,7 +20,7 @@ that stub independently after hitting exactly this; it is the better default,
 and the thin one stays available for a launcher that is only ever run from a
 terminal-adjacent context.
 
-**``LSMinimumSystemVersion`` is not a preference.** PySide6-Essentials ships as
+``LSMinimumSystemVersion`` is not a preference. PySide6-Essentials ships as
 ``macosx_13_0_universal2``, so a GUI extra cannot install below macOS 13.
 Claiming 11.0 would let Finder launch a bundle whose window can never open.
 Projects with no Qt dependency can lower it explicitly.

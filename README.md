@@ -2,78 +2,63 @@
 
 Shared scaffolding for desktop scientific applications.
 
-Not a science library. This is the apparatus that surrounds an analysis:
-guarding optional dependencies, reporting and cancelling slow work, collecting
-form errors, locating research data that is deliberately not in the checkout,
-running work off the UI thread, embedding a figure, rendering a documentation
-page, and building a macOS bundle.
+It is not a science library. It covers what surrounds an analysis: guarding
+optional dependencies, reporting and cancelling slow work, collecting form
+errors, locating research data kept outside the checkout, running work off the
+UI thread, embedding a figure, rendering a documentation page, and building a
+macOS bundle.
 
-The name is the point. At a synchrotron the endstation is the shared apparatus
-every experiment bolts onto — goniometer, detector, motion control — distinct
-from the science each experiment does.
+At a synchrotron, the endstation is the shared apparatus that every experiment
+bolts onto (goniometer, detector, motion control), as distinct from the science
+each experiment does. That is where the name comes from.
 
 ## Why it exists
 
-Four projects were four independent builds of the same artifact: a Python
-science package with an optional PySide6/matplotlib front-end, a hand-rolled
-macOS `.app`, private research data held outside the checkout, and a test suite
-that has to stay runnable headless. Every one of those concerns had been solved
-three or four times, and the copies had already drifted:
+Four projects are the same kind of thing: a Python science package with
+an optional PySide6/matplotlib front end, a macOS `.app`, research data held
+outside the checkout, and a test suite that runs headless. Each had solved those
+problems separately, and the copies had drifted. A layout fix, a worker teardown
+fix and a stronger toolkit-import test had each landed in one project and not
+the others. This package is where those pieces live now, so a fix lands once.
 
-- One project derives its layout floor from platform metrics after the
-  hardcoded-width bug shipped twice unnoticed; two others still hardcode a
-  pixel count.
-- One worker fixed a slot-ordering bug and a garbage-collection crash during
-  teardown; two others have neither fix.
-- The test that keeps a toolkit out of the pure layer exists three times, and
-  the strongest version — a subprocess import, which catches *transitive*
-  imports — is in only one of them.
-
-Each of those is a fix that landed in one place and not the others. That is the
-problem this package exists to stop.
-
-## The one rule
-
-**The core has no dependencies.**
+## The core has no dependencies
 
 ```toml
 dependencies = []
 ```
 
 `eblfrac` declares exactly that, so its fracture engine and GPF writer install
-anywhere. A shared package that quietly pulled numpy in would take that away at
-install time, from every downstream user, with no error to notice.
+anywhere. A shared package that pulled in numpy would take that away from every
+downstream user, with no error to notice.
 
-So `endstation`, `endstation.optional`, `endstation.progress`,
-`endstation.forms` and `endstation.paths` import nothing third-party at all, and
-`tests/test_core_has_no_dependencies.py` fails if that ever stops being true.
-Everything heavier lives behind an extra:
+`endstation`, `endstation.optional`, `endstation.progress`, `endstation.forms`
+and `endstation.paths` import nothing third-party, and
+`tests/test_core_has_no_dependencies.py` fails if that changes. Everything
+heavier sits behind an extra:
 
 | Subpackage | Extra | Needs |
 |---|---|---|
 | `endstation.qt` | `qt` | PySide6, matplotlib |
 | `endstation.docs` | `docs` | matplotlib, for math only |
 | `endstation.testing` | `testing` | pytest |
-| `endstation.tools` | — | macOS `sips`/`iconutil` at runtime |
+| `endstation.tools` | none | macOS `sips`/`iconutil` at runtime |
 
-`requires-python = ">=3.10"`, because `eblfrac` declares 3.10. A shared package
-must not raise its consumers' floor.
+`requires-python = ">=3.10"`, because `eblfrac` declares 3.10 and a shared
+package should not raise its consumers' floor.
 
 ## Install
-
-From PyPI, from 0.2.0 on:
 
 ```bash
 pip install "endstation[qt]"
 ```
 
-Or straight from git, pinning a tag for anything that matters:
+Or from git, pinned to a tag:
 
 ```bash
-pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.2.0"
+pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.2.1"
 ```
 
-For work on endstation itself:
+For working on endstation itself:
 
 ```bash
 pip install -e '.[dev]'
@@ -82,14 +67,13 @@ pip install -e '.[dev]'
 ### Publishing
 
 `.github/workflows/publish.yml` releases to PyPI when a `v*` tag is pushed,
-using Trusted Publishing — there is no API token anywhere, so there is nothing
-to leak or rotate. It needs a one-time *pending publisher* registered at
-<https://pypi.org/manage/account/publishing/> for `jamccoy/endstation`,
-workflow `publish.yml`, environment `pypi`.
+using Trusted Publishing, so no API token is stored anywhere. The publisher is
+registered at <https://pypi.org/manage/account/publishing/> for
+`jamccoy/endstation`, workflow `publish.yml`, environment `pypi`.
 
 ## What is in it
 
-### `endstation.optional` — dependencies that explain themselves
+### `endstation.optional`: dependencies that explain themselves
 
 ```python
 from endstation import require_extra, optional_module
@@ -99,16 +83,16 @@ require_extra("PySide6", "gui", still_works="The analysis works without it.")
 astropy = optional_module("astropy", "trapezoid", package="als_eff_meas")
 ```
 
-`require_extra` is a check that uses `find_spec`, so it costs nothing when the
-dependency is present and is safe to call from a module forbidden to import a
-toolkit. `optional_module` is a lazy proxy, so one missing package breaks only
-the functions that actually need it rather than every function in the module.
+`require_extra` checks with `find_spec`, so it costs nothing when the dependency
+is present and is safe to call from a module that must not import a toolkit.
+`optional_module` is a lazy proxy: a missing package breaks only the functions
+that use it, not every function in the module.
 
-The install command in the message is quoted, and the quotes are load-bearing:
-square brackets are glob characters, and zsh answers an unquoted
-`pip install .[gui]` with `no matches found`.
+The install command in the error message is quoted, because square brackets are
+glob characters and zsh answers an unquoted `pip install .[gui]` with
+`no matches found`.
 
-### `endstation.progress` — cancellation that actually stops the work
+### `endstation.progress`: cancellation that stops the work
 
 One callback, `progress(done, total)`. A callback that wants to stop raises
 `Cancelled`, and the loops let it propagate.
@@ -119,18 +103,17 @@ from endstation.progress import cancelling, throttled
 report = cancelling(throttled(on_progress), cancel_event.is_set)
 ```
 
-A Python thread cannot be killed and a NumPy-bound call has no check point, so
-the progress callback is the only moment a caller gets to interrupt. Without it
-cancelling stops the *waiting* — the CPU keeps working and the result is
-computed and thrown away.
+A Python thread cannot be killed, and a NumPy call has no check point, so the
+progress callback is the only place a caller can interrupt. Without it, cancel
+only stops the waiting: the CPU keeps going and the result is thrown away.
 
-Reporting is throttled; the cancellation check is not. A Cancel click lands at
-the next unit of work, not the next percent.
+Reporting is throttled; the cancellation check is not. A Cancel click takes
+effect at the next unit of work, not the next percent.
 
-### `endstation.forms` — errors collected, not raised on the first failure
+### `endstation.forms`: every error at once
 
-A form with three bad fields reports three problems, rather than making the user
-fix them one at a time and rediscover the next on each attempt.
+A form with three bad fields reports all three, instead of making the user fix
+them one at a time.
 
 ```python
 errors = ErrorCollector()
@@ -141,7 +124,7 @@ if not 0 <= trim < MAX_TRIM:
 errors.raise_if_any()
 ```
 
-### `endstation.paths` — data that is deliberately not in the checkout
+### `endstation.paths`: data kept outside the checkout
 
 ```python
 scans = find_data("GRATINGLAB_AFM_DIR", "~/Documents/afm_scans",
@@ -149,15 +132,15 @@ scans = find_data("GRATINGLAB_AFM_DIR", "~/Documents/afm_scans",
 ```
 
 A missing root is reported by name. `FileNotFoundError: [Errno 2]` on a path the
-user never typed is unactionable; naming the variable and the resolved path
+user never typed tells them nothing; naming the variable and the resolved path
 makes it a one-line fix.
 
-### `endstation.testing` — a headless suite without the conftest preamble
+### `endstation.testing`: a headless test suite with no conftest
 
-Registered through the `pytest11` entry point, so no conftest has to name it. It
-sets `QT_QPA_PLATFORM=offscreen`, `QT_API`, `PYTEST_QT_API` and `MPLBACKEND` —
-all with `setdefault`, so `QT_QPA_PLATFORM=cocoa pytest tests/test_gui.py` still
-opens a real window. `ENDSTATION_NO_HEADLESS=1` disables it entirely.
+It registers through the `pytest11` entry point, so no conftest has to name it.
+It sets `QT_QPA_PLATFORM=offscreen`, `QT_API`, `PYTEST_QT_API` and `MPLBACKEND`,
+each with `setdefault`, so `QT_QPA_PLATFORM=cocoa pytest tests/test_gui.py`
+still opens a real window. `ENDSTATION_NO_HEADLESS=1` turns it off.
 
 ## Tests
 
@@ -167,35 +150,33 @@ opens a real window. `ENDSTATION_NO_HEADLESS=1` disables it entirely.
 
 ## The template
 
-The pyproject skeleton, the CI workflow, the headless conftest and the ignore
-rules are duplicated across these projects too — but they must not become a
-runtime dependency, so they live in a [copier](https://copier.readthedocs.io)
-template rather than in the package:
+The pyproject skeleton, CI workflow, headless conftest and ignore rules repeat
+across these projects too. They should not be a runtime dependency, so they are
+a [copier](https://copier.readthedocs.io) template instead:
 
 ```bash
 pipx run copier copy gh:jamccoy/endstation my-project
 ```
 
 It asks whether the project has a PySide6 window and whether its tests read data
-held outside the checkout, and renders accordingly — a library project gets no
-`gui/` directory, and no apt step installing Qt system libraries into a CI run
-that will never open a window.
+from outside the checkout. A library project gets no `gui/` directory, and its
+CI does not install Qt system libraries it will never use.
 
-What it carries that is easy to get wrong:
+The template also carries a few things that are easy to miss:
 
-- The CI step that **constructs a `QApplication`** rather than merely importing
-  PySide6. The import succeeds long before the platform plugin is asked to load,
-  which is where a missing system library actually bites — and it fails next to
-  the apt step that would be at fault.
-- The check that data-dependent tests **skipped rather than failed**, and the
-  floor on how many tests must pass. A suite that quietly shrinks goes green
-  while testing almost nothing.
+- A CI step that constructs a `QApplication` instead of only importing PySide6.
+  The import succeeds before the platform plugin loads, and the plugin is where
+  a missing system library shows up, so the failure appears next to the apt
+  step that caused it.
+- A check that data-dependent tests were skipped rather than failed, and a
+  minimum number of passing tests, so a suite that quietly shrinks does not go
+  green.
 - No `qt_api` in `[tool.pytest.ini_options]`. It is a pytest-qt option, so
-  declaring it makes the suite unrunnable without the toolkit — the plugin
-  exports `PYTEST_QT_API` instead.
-- Local working notes ignored from the first commit, as a category, so a
-  scratch file never lands in a published repository by accident.
+  setting it makes the suite fail without the toolkit; the plugin exports
+  `PYTEST_QT_API` instead.
+- Local working notes are ignored from the first commit, so a scratch file does
+  not end up in a published repository.
 
-`tests/test_template.py` renders both variants and inspects the output, so a
-Jinja typo or a `${{ }}` the renderer ate fails here rather than the next time
-someone starts a project.
+`tests/test_template.py` renders both variants and checks the output, so a
+Jinja typo or a `${{ }}` the renderer ate fails here instead of in someone's
+new project.

@@ -20,7 +20,7 @@ __all__ = ["fit_width_to_contents"]
 
 
 def fit_width_to_contents(scroller: QScrollArea) -> int:
-    """Set ``scroller``'s minimum width to what its widget actually needs.
+    """Set ``scroller``'s minimum width to what its widget needs.
 
     Content minimum, plus the vertical scrollbar it may grow, plus both frame
     edges. Returns the figure so a caller can log or assert on it.

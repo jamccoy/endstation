@@ -20,8 +20,8 @@ traceback naming a package the user never asked for.
 :func:`optional_module` is a **proxy**, for a library that only some functions
 need. Importing such a dependency at module scope means one missing package
 breaks every function in the module, including the ones that never touch it.
-The proxy defers the import until an attribute is actually used, so the module
-imports cleanly and only the functions that genuinely need it raise.
+The proxy defers the import until an attribute is used, so the module
+imports cleanly and only the functions that need it raise.
 
 Neither is a fallback. Nothing here degrades to a stub that silently does
 nothing -- a missing dependency has to be loud, it just has to be loud in a way
@@ -65,12 +65,12 @@ def missing_extra_message(
     to know that what they wanted is fine; without it, a missing GUI toolkit
     looks like a broken install.
 
-    **The command is quoted, and the quotes are load-bearing.** Square brackets
+    The command is quoted, and it has to be. Square brackets
     are glob characters: zsh -- the default shell on macOS, where all of this
     runs -- answers unquoted ``pip install .[gui]`` with ``no matches found``,
     which is a worse first experience than the ImportError this replaced. An
     editable install is offered for the no-``package`` case because that is the
-    situation a developer in a checkout is actually in.
+    situation a developer in a checkout is in.
 
     ``install`` overrides the derived command outright, for a dependency that
     is **not** an extra of anything -- a package installed straight from a git
@@ -121,7 +121,7 @@ def require_extra(
     package
         Distribution name, so the message can say ``pip install mypkg[gui]``.
         Omitted for an editable checkout, where ``pip install '.[gui]'`` is what
-        a developer actually runs.
+        a developer runs.
     still_works
         One sentence naming what does not need this extra.
 

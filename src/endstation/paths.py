@@ -2,12 +2,12 @@
 
 Two problems that every project here solved separately.
 
-**Where is the repository?** Walk up for a marker file. The trap, learned once
+Where is the repository? Walk up for a marker file. The trap, learned once
 already: search for ``pyproject.toml``, not for a ``data`` directory. Searching
 for a directory that legitimately exists in several places finds the wrong one,
 and finds it silently.
 
-**Where is the data?** Not in the checkout. Raw AFM scans, synchrotron beamline
+Where is the data? Not in the checkout. Raw AFM scans, synchrotron beamline
 trees and instrument reference files are large, private, or belong to a research
 group, and committing them is a mistake that is hard to undo -- so they live
 outside, reached through an environment variable with a documented default. The
@@ -16,8 +16,8 @@ normal state for CI and for anyone who did not collect it. Code must therefore
 be able to *ask* whether the data is present without raising, and tests must
 skip cleanly and say which variable would enable them.
 
-The rule that makes this safe rather than merely convenient: **a missing data
-root is reported by name.** ``FileNotFoundError: [Errno 2]`` on a path the user
+The rule that matters most: a missing data
+root is reported by name. ``FileNotFoundError: [Errno 2]`` on a path the user
 never typed is unactionable; naming the variable and the path it resolved to
 turns it into a one-line fix.
 """

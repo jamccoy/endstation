@@ -5,7 +5,7 @@ changes -- a new request, a Cancel click, the window closing -- and every
 request carries the value it was issued under. A worker echoes that value back
 untouched, and a result whose token is not the current one is dropped.
 
-**Not a substitute for real cancellation, and not made redundant by it.**
+Not a substitute for real cancellation, and not made redundant by it.
 :mod:`endstation.qt.jobs` stops the work by raising through the progress
 callback; this recognises the result that was *already in flight* when Cancel
 was clicked. The worker may have finished between the click and the flag being

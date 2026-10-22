@@ -1,12 +1,12 @@
 """Shared scaffolding for desktop scientific applications.
 
-Not a science library. Everything here is the apparatus that surrounds an
+Not a science library. It covers what surrounds an
 analysis: guarding optional dependencies, reporting and cancelling slow work,
-collecting form errors, locating research data that is deliberately not in the
+collecting form errors, locating research data kept outside the
 checkout, running work off the UI thread, embedding a figure, rendering a
 documentation page, and building a macOS bundle.
 
-**The core imports nothing.** ``endstation``, ``endstation.optional``,
+The core imports nothing. ``endstation``, ``endstation.optional``,
 ``endstation.progress``, ``endstation.forms`` and ``endstation.paths`` have no
 third-party dependencies at all, so a package that declares
 ``dependencies = []`` can adopt them without giving that up. numpy, matplotlib
@@ -34,7 +34,7 @@ from .optional import MissingExtra, optional_module, require_extra
 from .paths import MissingData, data_root, find_data, find_project_root, require_dir
 from .progress import Cancelled, cancelling, report, throttled
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
     "__version__",

@@ -5,21 +5,21 @@ preamble, for the same reasons, with the same justification in the comments.
 This is that preamble, registered through the ``pytest11`` entry point so it
 runs without any conftest naming it.
 
-**Timing is the whole difficulty, and it is why this is a plugin rather than a
-fixture.** Both settings bind at first import: Qt reads ``QT_QPA_PLATFORM``
+Timing is the whole difficulty, and it is why this is a plugin rather than a
+fixture. Both settings bind at first import: Qt reads ``QT_QPA_PLATFORM``
 when the platform plugin loads, and matplotlib picks its backend when
 ``pyplot`` is first imported. A root ``conftest.py`` is imported *before*
 ``pytest_configure`` runs, so anything that waits for a hook has already lost
 to a conftest with a module-level ``import matplotlib.pyplot``. Entry-point
 plugins are imported earlier than any conftest, so the work is done here at
-module scope -- deliberately, not carelessly.
+module scope, on purpose.
 
-**``MPLBACKEND`` rather than ``matplotlib.use("Agg")``.** The environment
+``MPLBACKEND`` rather than ``matplotlib.use("Agg")``. The environment
 variable has identical effect and costs nothing, where calling ``use()`` would
 mean importing matplotlib inside a plugin that has to stay importable in a
 project which has never installed it.
 
-**``setdefault`` throughout, never assignment.** ``QT_QPA_PLATFORM=cocoa
+``setdefault`` throughout, never assignment. ``QT_QPA_PLATFORM=cocoa
 pytest tests/test_gui.py`` still opens a real window, which is genuinely the
 fastest way to debug a layout problem. A plugin that took that away would be
 worse than the four copies it replaces.
