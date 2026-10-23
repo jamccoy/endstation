@@ -8,6 +8,17 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Fixed
+
+- The `qt` and `dev` extras no longer install PySide6 6.12.0 below Python
+  3.12. That release aborts the interpreter at exit (`Fatal Python error:
+  bool_dealloc`) after heavy GUI use, because it releases a reference to
+  `True` or `False` that it does not own; on 3.12 and later those objects are
+  immortal and the bug is harmless. Only 6.12.0 is excluded, so a fixed
+  release is taken as soon as it exists.
+
 ## 0.2.4
 
 ### Changed
