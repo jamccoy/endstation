@@ -1,25 +1,25 @@
 """Finding a checkout, and finding research data that is not in it.
 
-Two problems that every project here solved separately.
+Every project here solved these two problems separately.
 
-Where is the repository? Walk up for a marker file. The trap, learned once
-already: search for ``pyproject.toml``, not for a ``data`` directory. Searching
-for a directory that legitimately exists in several places finds the wrong one,
-and finds it silently.
+The repository is located by walking upward for a marker file. The search
+should look for ``pyproject.toml`` and not for a ``data`` directory, a lesson
+already learned once: searching for a directory that legitimately exists in
+several places finds the wrong one, and does so silently.
 
-Where is the data? Not in the checkout. Raw AFM scans, synchrotron beamline
-trees and instrument reference files are large, private, or belong to a research
-group, and committing them is a mistake that is hard to undo -- so they live
-outside, reached through an environment variable with a documented default. The
-consequence is that a clean clone has no data, which is not a failure: it is the
-normal state for CI and for anyone who did not collect it. Code must therefore
-be able to *ask* whether the data is present without raising, and tests must
-skip cleanly and say which variable would enable them.
+The data is kept outside the checkout. Raw AFM scans, synchrotron beamline
+trees and instrument reference files are large, private, or belong to a
+research group, and committing them is a mistake that is hard to undo. They are
+therefore reached through an environment variable with a documented default.
+As a consequence a clean clone has no data, and this is not a failure; it is
+the normal state for CI and for anyone who did not collect the data. Code must
+therefore be able to ask whether the data is present without raising, and
+tests must skip cleanly and state which variable would enable them.
 
-The rule that matters most: a missing data
-root is reported by name. ``FileNotFoundError: [Errno 2]`` on a path the user
-never typed is unactionable; naming the variable and the path it resolved to
-turns it into a one-line fix.
+The most important rule is that a missing data root is reported by name.
+``FileNotFoundError: [Errno 2]`` on a path the user never typed gives no
+indication of what to do, whereas naming the variable and the path it resolved
+to makes the fix a single line.
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ def find_project_root(
     """Walk upward from ``start`` looking for a project marker.
 
     ``start`` defaults to the caller's current working directory. If no marker
-    is found the working directory is returned rather than raising: a package
-    imported from a wheel has no checkout above it, and that is a legitimate
-    way to be installed, not an error.
+    is found the working directory is returned without raising, because a
+    package imported from a wheel has no checkout above it, and that is a
+    legitimate way to be installed.
 
     Markers are checked in order at each level, so a nested checkout resolves to
     the innermost ``pyproject.toml`` rather than to an outer ``.git``.
@@ -66,9 +66,9 @@ def find_project_root(
 def data_root(env_var: str, default: Path | str) -> Path:
     """Resolve a research-data root from the environment, with a default.
 
-    Does **not** check that the directory exists -- that is
-    :func:`require_dir`'s job, and separating them is what lets a caller ask
-    "where would it be?" (to name it in a skip message or an error) without
+    This function does not check that the directory exists; that is the job of
+    :func:`require_dir`. Keeping the two separate allows a caller to ask where
+    the directory would be (to name it in a skip message or an error) without
     having to handle an exception first.
 
     ``~`` is expanded, so a default of ``"~/Documents/ALS"`` and an exported
@@ -92,7 +92,7 @@ def require_dir(
         The variable that would override this location. Named in the message,
         because "set X to point somewhere else" is the actual fix.
     hint
-        Where to read more -- a docs path, typically. Optional, because not
+        Where to read more, typically a docs path. It is optional because not
         every project has a data document.
     """
     if path.is_dir():

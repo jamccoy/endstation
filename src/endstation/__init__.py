@@ -1,12 +1,12 @@
 """Shared scaffolding for desktop scientific applications.
 
-Not a science library. It covers what surrounds an
+The package is not itself a science library. It covers what surrounds an
 analysis: guarding optional dependencies, reporting and cancelling slow work,
 collecting form errors, locating research data kept outside the
 checkout, running work off the UI thread, embedding a figure, rendering a
 documentation page, and building a macOS bundle.
 
-The core imports nothing. ``endstation``, ``endstation.optional``,
+The core imports no third-party packages. ``endstation``, ``endstation.optional``,
 ``endstation.progress``, ``endstation.forms`` and ``endstation.paths`` have no
 third-party dependencies at all, so a package that declares
 ``dependencies = []`` can adopt them without giving that up. numpy, matplotlib

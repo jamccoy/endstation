@@ -1,35 +1,35 @@
 r"""Rendering LaTeX math from a documentation page, without a LaTeX install.
 
 A theory page's ``$$\Phi_m(x) = ...$$`` should not reach a reader as literal
-source, backslashes and all. This is the pure half of the fix: splitting a
-markdown string into text and math spans, and rasterizing the math spans to PNG
-bytes via :func:`matplotlib.mathtext.math_to_image` -- which is already a
-dependency wherever there are plots, and needs no live display, so the whole
-pipeline down to PNG bytes is headlessly testable. Only the final step of
-turning those bytes into an embeddable image needs a real document.
+source, backslashes and all. This module is the pure half of the fix: it splits
+a markdown string into text and math spans, and rasterizes the math spans to
+PNG bytes via :func:`matplotlib.mathtext.math_to_image`. matplotlib is already
+a dependency wherever there are plots, and it needs no live display, so the
+whole pipeline down to PNG bytes can be tested headlessly. Only the final step,
+turning those bytes into an embeddable image, needs a real document.
 
-Three things worth knowing before touching this file.
+Three properties of the design should be understood before editing this file.
 
 Splitting happens before any escaping. Real documentation contains math
-spans holding ``<`` and ``>`` -- ``$t < w$``, ``$\zeta < \theta_c$``,
+spans holding ``<`` and ``>``, such as ``$t < w$``, ``$\zeta < \theta_c$`` and
 ``$k > 0$``. Escaping first would hand mathtext the string ``t &lt; w``, which
-it renders literally. So :func:`split_segments` runs on the raw source and only
-the *text* spans are escaped afterwards; the LaTeX never is.
+it renders literally. :func:`split_segments` therefore runs on the raw source,
+and only the text spans are escaped afterwards; the LaTeX is never escaped.
 
 ``\boxed{...}`` is not supported by mathtext. It raises ``ValueError``
 wrapping a ``ParseFatalException``. :func:`strip_boxed` removes the wrapper by
-counting braces rather than by regex, because the boxed content itself contains
-nested braces -- ``\boxed{\;G_m = \int_0^1 e^{i\Phi_m(t)}\,dt\;}`` -- and a
+counting braces instead of by regex, because the boxed content itself contains
+nested braces, as in ``\boxed{\;G_m = \int_0^1 e^{i\Phi_m(t)}\,dt\;}``. A
 naive ``\\boxed\{(.*)\}`` pattern would either stop at the first inner ``}`` or,
-greedy, swallow past the intended end. The visual rectangle is not reproduced;
-the equation still renders correctly and reads as its own centred line, which is
-the part that matters.
+being greedy, consume text past the intended end. The visual rectangle is not
+reproduced, but the equation still renders correctly and reads as its own
+centred line.
 
-A render failure degrades, it does not crash the viewer.
-:func:`render_math_png` returns ``None`` rather than propagating the parser's
-exception, so one unsupported macro in a future edit shows as visible raw source
-for that one span -- diagnosable at a glance -- rather than taking down the
-whole page.
+A render failure degrades without crashing the viewer.
+:func:`render_math_png` returns ``None`` instead of propagating the parser's
+exception, so one unsupported macro in a future edit appears as visible raw
+source for that one span, where it can be diagnosed at a glance, and the rest
+of the page still renders.
 """
 
 from __future__ import annotations
@@ -106,9 +106,9 @@ def _split_prose(text: str, out: list[Segment]) -> None:
 def strip_boxed(latex: str) -> str:
     r"""Remove ``\boxed{...}`` wrappers, counting braces rather than matching.
 
-    mathtext has no boxed macro and raises on one. The content is kept; only
-    the wrapper goes. Nested ``\boxed`` is handled by repeating until none is
-    left, which costs nothing and avoids a second surprise later.
+    mathtext has no boxed macro and raises on one. The content is kept and only
+    the wrapper is removed. Nested ``\boxed`` is handled by repeating until none
+    is left, which costs little and avoids a second failure later.
     """
     marker = r"\boxed{"
     while (start := latex.find(marker)) != -1:
@@ -138,8 +138,9 @@ def render_math_png(
 ) -> bytes | None:
     """Rasterize one math span. ``None`` if mathtext cannot parse it.
 
-    Returning ``None`` rather than raising is deliberate: an unsupported macro
-    should show as raw source for that one equation, not take down the page.
+    Returning ``None`` instead of raising is deliberate: an unsupported macro
+    should appear as raw source for that one equation while the rest of the
+    page renders.
 
     ``dpi`` is well above screen resolution because the result is displayed at
     its natural size on a Retina display, where a 100-dpi raster looks soft.

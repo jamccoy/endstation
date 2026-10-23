@@ -1,17 +1,18 @@
 """Building a macOS ``.app`` and its icon.
 
-Not frozen bundles. No PyInstaller, no embedded interpreter. A bundle here is
-three small files -- a plist, a shell stub, and an icon -- which is enough for a
-Dock icon and a double-clickable launcher, and takes a second to rebuild.
+The bundles are not frozen: there is no PyInstaller and no embedded
+interpreter. A bundle here consists of three small files (a plist, a shell
+stub, and an icon), which is enough for a Dock icon and a double-clickable
+launcher, and it takes a second to rebuild.
 
-The bundle is a build artifact; this is what is versioned. The stub
-hard-codes an absolute path to one checkout's virtualenv, which is wrong on any
-other machine, so committing the generated ``.app`` would commit a launcher that
-works nowhere else.
+The bundle is a build artifact, and this generator is what is versioned. The
+stub hard-codes an absolute path to one checkout's virtualenv, which is wrong
+on any other machine, so committing the generated ``.app`` would commit a
+launcher that works nowhere else.
 
 These are developer tools that shell out to ``sips`` and ``iconutil``. Both ship
-with macOS, so there is nothing to install -- and nothing here runs anywhere
-else, which the entry points check before doing any work.
+with macOS, so there is nothing to install. Nothing here runs on any other
+platform, and the entry points check for this before doing any work.
 """
 
 from __future__ import annotations

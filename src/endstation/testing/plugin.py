@@ -2,30 +2,30 @@
 
 Every project this was drawn from opens its ``tests/conftest.py`` with the same
 preamble, for the same reasons, with the same justification in the comments.
-This is that preamble, registered through the ``pytest11`` entry point so it
-runs without any conftest naming it.
+This module is that preamble, registered through the ``pytest11`` entry point so
+that it runs without any conftest naming it.
 
-Timing is the whole difficulty, and it is why this is a plugin rather than a
+The main difficulty is timing, and it is the reason this is a plugin and not a
 fixture. Both settings bind at first import: Qt reads ``QT_QPA_PLATFORM``
 when the platform plugin loads, and matplotlib picks its backend when
-``pyplot`` is first imported. A root ``conftest.py`` is imported *before*
-``pytest_configure`` runs, so anything that waits for a hook has already lost
-to a conftest with a module-level ``import matplotlib.pyplot``. Entry-point
-plugins are imported earlier than any conftest, so the work is done here at
-module scope, on purpose.
+``pyplot`` is first imported. A root ``conftest.py`` is imported before
+``pytest_configure`` runs, so anything that waits for a hook is already too
+late for a conftest with a module-level ``import matplotlib.pyplot``.
+Entry-point plugins are imported earlier than any conftest, so the work is
+deliberately done here at module scope.
 
-``MPLBACKEND`` rather than ``matplotlib.use("Agg")``. The environment
-variable has identical effect and costs nothing, where calling ``use()`` would
-mean importing matplotlib inside a plugin that has to stay importable in a
-project which has never installed it.
+The plugin sets ``MPLBACKEND`` instead of calling ``matplotlib.use("Agg")``.
+The environment variable has the same effect at no cost, whereas calling
+``use()`` would mean importing matplotlib inside a plugin that has to stay
+importable in a project which has never installed it.
 
-``setdefault`` throughout, never assignment. ``QT_QPA_PLATFORM=cocoa
-pytest tests/test_gui.py`` still opens a real window, which is genuinely the
-fastest way to debug a layout problem. A plugin that took that away would be
-worse than the four copies it replaces.
+Every setting uses ``setdefault`` and none uses assignment, so ``QT_QPA_PLATFORM=cocoa
+pytest tests/test_gui.py`` still opens a real window, which is the fastest way
+to debug a layout problem. A plugin that removed that
+option would be worse than the four copies it replaces.
 
-Set ``ENDSTATION_NO_HEADLESS=1`` to disable all of it -- the escape hatch for a
-project that is installed alongside this one but wants nothing to do with it.
+Set ``ENDSTATION_NO_HEADLESS=1`` to disable all of it. This is intended for a
+project that is installed alongside this one but does not want its behaviour.
 """
 
 from __future__ import annotations
@@ -76,9 +76,10 @@ def skip_without_data(
     """Return the data directory, or skip the test naming the variable that enables it.
 
     The skip message has to name ``env_var``. A suite that skips silently looks
-    identical to one that has no tests, and "20 skipped" with no explanation is
-    what lets a green CI run mean nothing -- so the reason a contributor without
-    the research data sees is the exact variable they would set to change it.
+    identical to one that has no tests, and "20 skipped" with no explanation
+    allows a green CI run to carry no information. The reason shown to a
+    contributor without the research data is therefore the exact variable they
+    would set to change it.
 
     Use through the :func:`data_dir` fixture factory, or directly::
 
@@ -104,8 +105,8 @@ def data_dir_fixture(
 
         ref_dir = data_dir_fixture("GRATINGLAB_REF_DIR", "~/Documents/pcgrate")
 
-    A factory rather than a fixture because the variable name and default differ
-    per project, and a fixture cannot be parameterised at definition time.
+    This is a factory and not a fixture because the variable name and default
+    differ per project, and a fixture cannot be parameterised at definition time.
     """
 
     @pytest.fixture(scope=scope)

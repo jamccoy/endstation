@@ -4,23 +4,24 @@
     endstation-app --name "GratingLab" --script gratinglab-gui \
                    --bundle-id org.gratinglab.gui --icon resources/GratingLab.icns
 
-Not a frozen bundle -- no PyInstaller, no embedded interpreter. Three files: a
-plist, a shell stub that execs the console script, and the icon. Enough for a
-Dock icon and a double-clickable launcher, and it rebuilds in a second.
+The bundle is not frozen: there is no PyInstaller and no embedded interpreter.
+It consists of three files: a plist, a shell stub that execs the console
+script, and the icon. This is enough for a Dock icon and a double-clickable
+launcher, and it rebuilds in a second.
 
-Two stub generations existed, and both are kept.
+Two generations of stub existed, and both are kept.
 
-``thin`` is a two-line ``exec``. Smallest thing that works.
+``thin`` is a two-line ``exec``, the smallest stub that works.
 
 ``logging`` (the default) sends output to ``~/Library/Logs/<stem>.log`` and
-raises a native alert naming that log if the GUI exits non-zero. That exists
-because **a .app that fails silently is useless**: a missing virtualenv
-otherwise just bounces the icon once and gives no clue why. Two projects wrote
-that stub independently after hitting exactly this; it is the better default,
-and the thin one stays available for a launcher that is only ever run from a
-terminal-adjacent context.
+raises a native alert naming that log if the GUI exits non-zero. It exists
+because a .app that fails silently gives the user nothing to act on: a missing
+virtualenv otherwise only bounces the icon once and gives no indication of the
+cause. Two projects wrote that stub independently after meeting this problem.
+It is the better default, and the thin stub remains available for a launcher
+that is only ever run from a terminal-adjacent context.
 
-``LSMinimumSystemVersion`` is not a preference. PySide6-Essentials ships as
+``LSMinimumSystemVersion`` is a hard requirement. PySide6-Essentials ships as
 ``macosx_13_0_universal2``, so a GUI extra cannot install below macOS 13.
 Claiming 11.0 would let Finder launch a bundle whose window can never open.
 Projects with no Qt dependency can lower it explicitly.
@@ -75,8 +76,8 @@ echo "--- $(date) ---" >> "$LOG"
 class App:
     """One window's bundle identity.
 
-    ``stem`` carries no spaces: it names the executable, the icon file and the
-    iconset directory inside the bundle, where a space is a nuisance rather than
+    ``stem`` carries no spaces. It names the executable, the icon file and the
+    iconset directory inside the bundle, where a space is a nuisance though not
     an error. It defaults to ``name`` with spaces removed.
     """
 
@@ -154,8 +155,8 @@ def build_app(
 def check_app(bundle: Path) -> list[str]:
     """Report what is wrong with an existing bundle. Empty list means it is fine.
 
-    Worth having because the usual breakage is invisible from the outside: the
-    repository moved, so the stub points at a virtualenv that is no longer
+    The check is useful because the usual breakage cannot be seen from outside:
+    the repository moved, so the stub points at a virtualenv that is no longer
     there, and the only symptom is an icon that bounces once.
     """
     bundle = Path(bundle)

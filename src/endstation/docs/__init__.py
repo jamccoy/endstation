@@ -1,17 +1,17 @@
 """Documentation pages: an ordered index, and markdown rendered for a Qt viewer.
 
-Four projects had a version of this and each had a capability the others
-lacked -- one rendered LaTeX, one prerendered HTML for an older Qt, one shipped
-its pages as package data, one published them to a GitHub wiki. This is the
-union.
+Four projects had a version of this, and each had a capability the others
+lacked: one rendered LaTeX, one prerendered HTML for an older Qt, one shipped
+its pages as package data, and one published them to a GitHub wiki. This
+subpackage combines all four.
 
-Toolkit-free: nothing here imports Qt. :mod:`endstation.docs.markdown` produces
-HTML plus a dictionary of PNG bytes, and the widget layer registers those with
-``QTextDocument.addResource``. That keeps the whole pipeline testable down to
-the bytes, with no display.
+The subpackage is toolkit-free, and nothing here imports Qt.
+:mod:`endstation.docs.markdown` produces HTML plus a dictionary of PNG bytes,
+and the widget layer registers those with ``QTextDocument.addResource``. As a
+result the whole pipeline can be tested down to the bytes without a display.
 
-Needs matplotlib for math rendering, which is the ``mpl`` extra. Structure
-conversion alone works without it -- pass ``render_math=False``.
+Math rendering needs matplotlib, which is the ``mpl`` extra. Structure
+conversion alone works without it if ``render_math=False`` is passed.
 """
 
 from __future__ import annotations

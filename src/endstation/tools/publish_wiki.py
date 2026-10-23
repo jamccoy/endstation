@@ -3,25 +3,25 @@
     endstation-publish-wiki --docs docs --wiki ../myproject.wiki
 
 The repository's ``docs/`` is the source of truth. A GitHub wiki is a separate
-git repository, which is why a wiki drifts: nobody edits two copies reliably,
-and the one people read is the one nobody edits.
+git repository, which is why a wiki drifts: two copies are rarely kept in step
+by hand, and the copy people read is the one that is not edited.
 
-Two differences between the formats, and both are handled here:
+The formats differ in two ways, and both are handled here.
 
 Wiki links carry no extension. ``[Install](Installation.md)`` resolves in a
 repository browser and 404s in a wiki, where it must be
 ``[Install](Installation)``. The rewrite is confined to links pointing at a page
-being published -- an external URL or a link to a file that is not a wiki page
+being published; an external URL or a link to a file that is not a wiki page
 is left exactly as written.
 
-Wiki page names are their filenames, with hyphens shown as spaces. So
+Wiki page names are their filenames, with hyphens shown as spaces, so
 ``Getting-Started.md`` becomes the page "Getting Started". Nothing is renamed
 here; the filenames in ``docs/`` are the page names.
 
-This never commits and never pushes. It writes files into a checkout and
-stops, so the diff can be read before anything is published. Publishing docs is
-outward-facing, and a tool that did it in one step would eventually do it by
-accident.
+This tool never commits and never pushes. It writes files into a checkout and
+stops, so that the diff can be read before anything is published. Publishing
+docs is outward-facing, and a tool that did it in one step would eventually do
+it by accident.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def rewrite_links(text: str, pages: set[str]) -> str:
 
 
 def _read(path: Path) -> str:
-    """Read a page as UTF-8, falling back to cp1252 rather than failing.
+    """Read a page as UTF-8, falling back to cp1252 instead of failing.
 
     The encoding is named because the default is the locale's, which is cp1252
     on Windows, and a UTF-8 page then fails with ``UnicodeDecodeError`` or

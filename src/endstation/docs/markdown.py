@@ -1,37 +1,37 @@
-r"""Documentation pages as rich text: markdown structure *and* typeset math.
+r"""Documentation pages as rich text, with both markdown structure and typeset math.
 
-Qt's rich-text engine parses a small HTML subset, which makes this cheap: this
+Qt's rich-text engine parses a small HTML subset, which keeps this simple: this
 module converts a page to that subset, and the widget layer only displays it.
 
-Getting equations rendering and stopping there is a tempting place to stop, and
-it goes bad: tables and bullet lists stay as literal pipes and dashes. Real
-documentation puts the evidence *in* the tables -- an angle-convention
-reconciliation, an errata list, a three-way comparison -- and those are the
-content, in the one place a reader goes to understand what the software does.
+Rendering equations alone is not sufficient, because tables and bullet lists
+would then remain as literal pipes and dashes. Real documentation places much
+of its evidence in tables (an angle-convention reconciliation, an errata list,
+a three-way comparison), and those tables are content in the one place a reader
+goes to understand what the software does.
 
-No markdown dependency. The subset Qt renders is small enough that a full
-CommonMark implementation would mostly be output this cannot use, and the
-conversion has to interleave with math extraction anyway (see below). This
-handles headings, paragraphs, bullet and numbered lists, tables, fenced and
-inline code, bold, italic, links, block quotes and rules, which is what the
-pages contain.
+The module has no markdown dependency. The subset Qt renders is small enough
+that most of the output of a full CommonMark implementation could not be used,
+and the conversion has to interleave with math extraction in any case (see
+below). The module handles headings, paragraphs, bullet and numbered lists,
+tables, fenced and inline code, bold, italic, links, block quotes and rules,
+which covers what the pages contain.
 
-Three things worth knowing before editing:
+Three properties of the design should be understood before editing.
 
 Math is split out before anything is escaped. Math spans in real pages
 contain ``<`` and ``>``. Escaping first would hand mathtext ``t &lt; w``, which
-it renders literally. So :func:`~endstation.docs.mathtext.split_segments` runs
-on the raw source and only the *text* spans are escaped.
+it renders literally. :func:`~endstation.docs.mathtext.split_segments` therefore
+runs on the raw source, and only the text spans are escaped.
 
-Images are referenced by key, not embedded. ``QTextDocument.loadResource``
-does not handle ``data:`` URLs, so each rendered equation gets an
+Images are referenced by key and are not embedded. ``QTextDocument.loadResource``
+does not handle ``data:`` URLs, so each rendered equation is given an
 ``endstation-math:N`` src and the viewer registers the bytes with
-``addResource``. That also keeps this module free of base64 padding it would
-only have to undo.
+``addResource``. This also spares the module a base64 encoding that the viewer
+would only have to undo.
 
-A render failure degrades rather than crashing. The raw ``$...$`` source
-appears in a distinct colour, so a future edit using an unsupported macro is
-diagnosable at a glance instead of taking down the page.
+A render failure degrades without crashing. The raw ``$...$`` source
+appears in a distinct colour, so a future edit that uses an unsupported macro
+can be diagnosed at a glance and does not take down the page.
 """
 
 from __future__ import annotations
@@ -236,8 +236,8 @@ _TOKEN = "\x00MATH{}\x00"
 def to_html(source: str, *, render_math: bool = True) -> RenderedPage:
     """Convert a markdown page to the HTML subset ``QTextDocument`` renders.
 
-    ``render_math=False`` skips rasterisation entirely -- for a test that cares
-    about structure, or an environment with no matplotlib.
+    ``render_math=False`` skips rasterisation entirely, which suits a test
+    concerned with structure or an environment without matplotlib.
     """
     segments = split_segments(source)
 

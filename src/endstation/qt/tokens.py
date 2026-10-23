@@ -1,20 +1,22 @@
 """Telling a result you still want from one you cancelled.
 
-A monotonic counter. The window bumps it whenever what it is waiting for
-changes -- a new request, a Cancel click, the window closing -- and every
-request carries the value it was issued under. A worker echoes that value back
-untouched, and a result whose token is not the current one is dropped.
+The mechanism is a monotonic counter. The window increments it whenever what
+it is waiting for changes (a new request, a Cancel click, or the window
+closing), and every request carries the value it was issued under. A worker
+echoes that value back untouched, and a result whose token is not the current
+one is dropped.
 
-Not a substitute for real cancellation, and not made redundant by it.
+The counter neither replaces real cancellation nor is made redundant by it.
 :mod:`endstation.qt.jobs` stops the work by raising through the progress
-callback; this recognises the result that was *already in flight* when Cancel
-was clicked. The worker may have finished between the click and the flag being
-read, so a stale result can still arrive no matter how prompt cancellation is.
-Belt and braces, for two different situations.
+callback, while this module recognises a result that was already in flight
+when Cancel was clicked. The worker may have finished between the click and the
+reading of the flag, so a stale result can still arrive however promptly
+cancellation acts. The two mechanisms therefore cover two different situations.
 
-Deliberately not a lock. It is only ever bumped on the GUI thread and only ever
-read for equality, and an int assignment is atomic under the GIL; introducing a
-mutex here would suggest a concurrency story that does not exist.
+The counter is deliberately not protected by a lock. It is only incremented on
+the GUI thread and only read for equality, and an int assignment is atomic
+under the GIL. A mutex here would imply a concurrency requirement that does not
+exist.
 """
 
 from __future__ import annotations
@@ -53,8 +55,8 @@ class StaleGuard:
     def issue(self) -> int:
         """Start a new request and return its token.
 
-        Bumping on *issue* rather than on completion is what makes a second
-        request supersede a first that is still running: the older result comes
+        Incrementing on issue, and not on completion, allows a second request
+        to supersede a first that is still running: the older result comes
         back carrying a token that is no longer current, and is dropped.
         """
         self._current += 1
@@ -63,8 +65,8 @@ class StaleGuard:
     def invalidate(self) -> None:
         """Abandon whatever is in flight without starting anything new.
 
-        For Cancel, and for ``closeEvent`` -- a window that is closing must not
-        try to draw into widgets Qt is about to delete.
+        This is used for Cancel and for ``closeEvent``, since a window that is
+        closing must not try to draw into widgets Qt is about to delete.
         """
         self._current += 1
 
@@ -72,5 +74,5 @@ class StaleGuard:
         return token == self._current
 
     def is_stale(self, token: int) -> bool:
-        """True if this result should be dropped. The form call sites read best in."""
+        """True if this result should be dropped; call sites read best in this form."""
         return token != self._current

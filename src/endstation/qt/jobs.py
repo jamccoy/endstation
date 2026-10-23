@@ -1,28 +1,28 @@
 """Running slow work off the GUI thread.
 
-The contract is narrow on purpose:
+The contract is deliberately narrow:
 
-* the callable runs on a worker thread and must return **data**, never a
-  matplotlib artist -- see rule 2 in :mod:`endstation.qt`;
+* the callable runs on a worker thread and must return data, never a
+  matplotlib artist (see rule 2 in :mod:`endstation.qt`);
 * it may accept a ``progress`` keyword, which it forwards to the core;
-* cancelling raises :class:`~endstation.progress.Cancelled` *inside* the
-  callable, so it stops at the next reported step rather than running to
-  completion and throwing the result away.
+* cancelling raises :class:`~endstation.progress.Cancelled` inside the
+  callable, so it stops at the next reported step instead of running to
+  completion and discarding the result.
 
-Built on ``QThreadPool``/``QRunnable`` rather than a hand-managed
+The module is built on ``QThreadPool``/``QRunnable`` instead of a hand-managed
 ``QThread``. The QThread version aborted the interpreter when jobs ran back
-to back: the thread and its worker were being collected while the thread was
-still finishing, which is a crash rather than an exception and so is not
-something a front-end can defend against. Letting Qt own the thread lifetime
-removes that class of bug outright.
+to back, because the thread and its worker were being collected while the
+thread was still finishing. That is a crash and not an exception, so a
+front-end cannot defend against it. Letting Qt own the thread lifetime removes
+that class of bug entirely.
 
-Both cancellation mechanisms are here, and they are not redundant. Raising
-through the progress callback stops the *work*. The monotonic token
+Both cancellation mechanisms are used here, and they are not redundant. Raising
+through the progress callback stops the work. The monotonic token
 (:mod:`endstation.qt.tokens`) recognises a result that was already in flight
 when Cancel was clicked and must not be rendered. Real cancellation does not
-remove the race it was covering for -- a worker may finish between the click
-and the flag being read -- so a front-end needs both, for two different
-situations.
+remove the race the token covers, since a worker may finish between the click
+and the reading of the flag, so a front-end needs both mechanisms for the two
+different situations.
 """
 
 from __future__ import annotations
@@ -39,8 +39,8 @@ __all__ = ["Job", "JobRunner", "JobSignals"]
 class JobSignals(QObject):
     """Signals for a :class:`Job`.
 
-    Separate because ``QRunnable`` is not a ``QObject`` and cannot carry
-    signals itself.
+    This is a separate class because ``QRunnable`` is not a ``QObject`` and
+    cannot carry signals itself.
     """
 
     progress = Signal(int, int)      # done, total
@@ -55,8 +55,8 @@ class Job(QRunnable):
     Exactly one of ``finished`` / ``failed`` / ``cancelled`` is emitted.
 
     If ``report_progress`` is true the callable is passed a ``progress=``
-    keyword. Left true by default because that is what makes cancellation
-    prompt; set it false for a callable that does not accept the keyword.
+    keyword. It is true by default because the keyword is what makes
+    cancellation prompt; set it false for a callable that does not accept it.
     """
 
     def __init__(
@@ -94,16 +94,17 @@ class Job(QRunnable):
     def cancel(self) -> None:
         """Ask the work to stop.
 
-        Safe to call from the GUI thread while the job runs: it only sets a
-        flag, which the progress callback reads on the worker thread. A bool
-        assignment needs no lock.
+        This is safe to call from the GUI thread while the job runs, because
+        it only sets a flag, which the progress callback reads on the worker
+        thread. A bool assignment needs no lock.
 
-        A request, not a guarantee. The flag is read at the next progress
-        report, so a job that finishes first emits ``finished`` and not
-        ``cancelled`` -- cancelling cannot un-finish completed work. That is
-        invisible on the multi-second operations this exists for, but it means
-        callers must handle either outcome rather than assuming ``cancelled``
-        follows every :meth:`cancel`.
+        The call is a request and does not guarantee cancellation. The flag is
+        read at the next progress report, so a job that finishes first emits
+        ``finished`` and not ``cancelled``, since cancelling cannot undo
+        completed work. The effect is not noticeable on the multi-second
+        operations this class is meant for, but callers must handle either
+        outcome and cannot assume that ``cancelled`` follows every
+        :meth:`cancel`.
         """
         self._stop = True
 
@@ -145,9 +146,10 @@ class Job(QRunnable):
 class JobRunner(QObject):
     """Starts jobs and tracks whether one is in flight.
 
-    One at a time by design. The operations this exists for are heavy and
-    usually write the same preview state, so overlapping them would race for
-    both the CPU and the result; :meth:`busy` lets callers refuse instead.
+    Jobs run one at a time by design. The operations this class is meant for
+    are heavy and usually write the same preview state, so overlapping them
+    would race for both the CPU and the result; :meth:`busy` allows callers to
+    refuse new work instead.
     """
 
     started = Signal(object)

@@ -1,23 +1,23 @@
 """Which documentation pages exist, and what order they read in.
 
-Toolkit-free on purpose, like the rest of the pure layer: a build script needs
-to know what to generate, a test needs to check the set is current, and a CLI
-``--explain`` should be able to print the same prose the window shows. None of
-those should need a GUI installed.
+This module is toolkit-free by design, like the rest of the pure layer. A
+build script needs to know what to generate, a test needs to check that the
+set is current, and a CLI ``--explain`` should be able to print the same prose
+the window shows. None of these should require a GUI to be installed.
 
-Ordering is explicit, not alphabetical. A reader should meet the overview
-before the correction it motivates, and alphabetical ordering puts
-``facet-fitting`` before ``overview`` for no reason anyone can defend. A page
-listed in the order but missing from disk is skipped rather than raising -- a
-half-written set should not stop a window opening -- and a page found on disk
-but absent from the order is appended, so adding a file does not also require
-registering it in a second place.
+Ordering is explicit. A reader should meet the overview before the correction
+it motivates, and alphabetical ordering would place ``facet-fitting`` before
+``overview`` for no good reason. A page listed in the order but missing from
+disk is skipped without raising, because a half-written set should not stop a
+window from opening. A page found on disk but absent from the order is
+appended, so that adding a file does not also require registering it in a
+second place.
 
 A missing directory degrades to an explanatory entry. Pages that live at
 the repository root ship in a checkout and not in a wheel; pages shipped as
-package data ship in both. Either is a legitimate arrangement, but a Help menu
-that silently loses half its items when installed is not -- so an unavailable
-page still appears and says why.
+package data ship in both. Either arrangement is legitimate, but a Help menu
+that silently loses half its items when installed is not acceptable, so an
+unavailable page still appears and states why.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def load_pages(
 ) -> PageIndex:
     """Build an index from ``directory``.
 
-    ``order`` lists slugs -- filenames without ``.md`` -- in reading order.
+    ``order`` lists slugs (filenames without ``.md``) in reading order.
     Slugs in ``order`` but not on disk are skipped; files on disk but not in
     ``order`` are appended in sorted order.
 

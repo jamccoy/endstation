@@ -1,31 +1,31 @@
 """Optional dependencies that explain themselves when they are missing.
 
 ``ModuleNotFoundError: No module named 'PySide6'`` tells a user nothing about
-what to do, and a missing extra is the single most likely first-run failure for
-anyone who installed a package's core distribution. Every project this was
-drawn from had written its own version of the same fix, with the same opening
-sentence in the docstring; this is that fix, once.
+what to do, and a missing extra is the most likely first-run failure for
+anyone who installed a package's core distribution. Every project this module
+was drawn from had written its own version of the same fix, with the same
+opening sentence in the docstring. This module provides that fix in one place.
 
-Two shapes, because the projects genuinely need both:
+The module offers two forms, because the projects need both.
 
-:func:`require_extra` is a **check**, for the moment before a toolkit is
-imported. It uses :func:`importlib.util.find_spec` rather than an import, for
+:func:`require_extra` is a check, for the moment before a toolkit is
+imported. It uses :func:`importlib.util.find_spec` instead of an import, for
 two reasons: checking availability should not cost a full matplotlib or Qt
-import in the case where the dependency *is* present, and the caller is often a
+import in the case where the dependency is present, and the caller is often a
 module that is forbidden from importing the toolkit at all (see
 :mod:`endstation.testing.boundary`). A console-script entry point should call
-it first, so a missing extra produces an install instruction rather than a
+it first, so that a missing extra produces an install instruction and not a
 traceback naming a package the user never asked for.
 
-:func:`optional_module` is a **proxy**, for a library that only some functions
+:func:`optional_module` is a proxy, for a library that only some functions
 need. Importing such a dependency at module scope means one missing package
-breaks every function in the module, including the ones that never touch it.
+breaks every function in the module, including the ones that never use it.
 The proxy defers the import until an attribute is used, so the module
-imports cleanly and only the functions that need it raise.
+imports cleanly and only the functions that need the dependency raise.
 
-Neither is a fallback. Nothing here degrades to a stub that silently does
-nothing -- a missing dependency has to be loud, it just has to be loud in a way
-that names the fix.
+Neither form is a fallback. Nothing here degrades to a stub that silently does
+nothing. A missing dependency still produces an error, but the error names the
+fix.
 """
 
 from __future__ import annotations
@@ -56,30 +56,30 @@ def missing_extra_message(
 ) -> str:
     """Compose the text :func:`require_extra` raises.
 
-    Separated out because the projects downstream assert on this string -- both
-    that it names the module and that it names the extra -- and a test should
-    not have to trigger the failure to read it.
+    This is a separate function because the downstream projects assert on this
+    string (both that it names the module and that it names the extra), and a
+    test should not have to trigger the failure in order to read it.
 
-    ``still_works`` is the sentence that keeps this from reading as a fatal
-    error. A user who wanted only the analysis, the exporter or the CLI needs
-    to know that what they wanted is fine; without it, a missing GUI toolkit
-    looks like a broken install.
+    ``still_works`` is the sentence that keeps the message from reading as a
+    fatal error. A user who wanted only the analysis, the exporter or the CLI
+    needs to know that those parts are unaffected; without it, a missing GUI
+    toolkit looks like a broken install.
 
-    The command is quoted, and it has to be. Square brackets
-    are glob characters: zsh -- the default shell on macOS, where all of this
-    runs -- answers unquoted ``pip install .[gui]`` with ``no matches found``,
-    which is a worse first experience than the ImportError this replaced. An
-    editable install is offered for the no-``package`` case because that is the
-    situation a developer in a checkout is in.
+    The command must be quoted. Square brackets are glob characters, and zsh
+    (the default shell on macOS, where all of this runs) answers an unquoted
+    ``pip install .[gui]`` with ``no matches found``, which is a worse first
+    experience than the ImportError this message replaced. An editable install
+    is offered for the no-``package`` case because that is the situation of a
+    developer working in a checkout.
 
     ``install`` overrides the derived command outright, for a dependency that
-    is **not** an extra of anything -- a package installed straight from a git
-    URL, say. That case is real and the derived form cannot express it: not
-    every optional dependency is one you package.
+    is not an extra of any package, such as a package installed directly from
+    a git URL. This case occurs in practice and the derived form cannot express
+    it, because not every optional dependency is packaged by the caller.
 
-    ``purpose`` names what needs it, for a library where only a few functions
-    do. "needed for wavefront fitting" tells a reader whether they care; "this
-    feature" does not.
+    ``purpose`` names what needs the dependency, for a library where only a few
+    functions do. "needed for wavefront fitting" tells a reader whether the
+    message concerns them, while "this feature" does not.
     """
     if install is not None:
         command = install
@@ -213,6 +213,6 @@ def optional_module(
         )
 
     The import happens on first attribute access, so a module using this stays
-    importable -- and its other functions stay usable -- without the dependency.
+    importable, and its other functions stay usable, without the dependency.
     """
     return _OptionalModule(name, extra, package, install, purpose, still_works)

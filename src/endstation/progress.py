@@ -1,11 +1,11 @@
 """Progress reporting and cancellation for slow operations.
 
-Deliberately here rather than in a GUI layer. Decoding a 78 MB pattern file
-takes seconds, and so does a wavelength sweep; a front-end that cannot say so
--- or stop -- is the main thing wrong with a single-threaded callback. Keeping
-the mechanism toolkit-free means it can be tested with plain functions and no
-GUI installed at all, which is what lets the interface layer stay thin enough
-to be worth trusting.
+This mechanism is deliberately placed here and not in a GUI layer. Decoding a
+78 MB pattern file takes seconds, and so does a wavelength sweep. The main
+shortcoming of a single-threaded callback is a front-end that can neither
+report this progress nor stop the work. Keeping the mechanism toolkit-free means
+it can be tested with plain functions and no GUI installed at all, which allows
+the interface layer to stay thin enough to be trusted.
 
 The protocol is one callback::
 
@@ -14,17 +14,18 @@ The protocol is one callback::
 called as work completes, with ``done`` rising to ``total``.
 
 Cancellation needs no return-value protocol. A callback that wants to stop
-the work simply raises -- :class:`Cancelled` by convention -- and the loops let
-it propagate. That is why every :func:`report` call site should sit directly in
-the loop rather than inside a ``try``: swallowing an exception from a progress
-callback would silently turn "stop" into "carry on", which is the one behaviour
-a cancel button must never have.
+the work raises (:class:`Cancelled`, by convention), and the loops let the
+exception propagate. For this reason every :func:`report` call site should sit
+directly in the loop and not inside a ``try``. Swallowing an exception from a
+progress callback would silently turn "stop" into "carry on", which a cancel
+button must never do.
 
-This is the piece that makes cancellation *real* rather than cosmetic. A Python
-thread cannot be killed and a NumPy-bound call has no check point, so a caller
-that wants to interrupt has to be handed a moment in which to do it; the
-progress callback is that moment. Without it, cancelling can only stop the
-*waiting* -- the CPU keeps working and the result is computed and thrown away.
+The callback is what allows cancellation to stop the computation itself. A
+Python thread cannot be killed and a NumPy-bound call has no check point, so a
+caller that wants to interrupt the work has to be given a moment in which to do
+so, and the progress callback provides that moment. Without it, cancelling can
+only stop the waiting: the CPU keeps working, and the result is computed and
+then discarded.
 """
 
 from __future__ import annotations
@@ -43,25 +44,27 @@ class ProgressCallback(Protocol):
 class Cancelled(Exception):
     """Raised through a progress callback to abort a long operation.
 
-    Not an error: it means the caller asked to stop. Front-ends should report
-    it as a cancellation rather than a failure, and callers that catch broad
-    exception groups need to let this one through -- a solver wrapping its
-    callback in ``except Exception`` would swallow it and quietly restore the
-    old behaviour in which cancelling stopped only the waiting.
+    This exception does not indicate an error; it means the caller asked to
+    stop. Front-ends should report it as a cancellation and not as a failure,
+    and callers that catch broad exception groups need to let it through. A
+    solver wrapping its callback in ``except Exception`` would swallow it and
+    quietly restore the old behaviour, in which cancelling stopped only the
+    waiting.
 
-    Derives from :class:`Exception` rather than :class:`BaseException`
-    on purpose. It crosses ordinary application code that is entitled to run
-    ``finally`` blocks and close files on the way out; ``BaseException`` is for
-    conditions that should skip that, and this is not one.
+    It derives from :class:`Exception` and not from :class:`BaseException`
+    on purpose. It passes through ordinary application code that is entitled to
+    run ``finally`` blocks and close files on the way out. ``BaseException`` is
+    intended for conditions that should skip that cleanup, and a cancellation
+    is not one of them.
     """
 
 
 def report(progress: Optional[ProgressCallback], done: int, total: int) -> None:
     """Call ``progress`` if there is one.
 
-    Exceptions from the callback propagate on purpose -- see the module
-    docstring. Kept as a function so every call site reads the same and the
-    ``None`` check lives in one place.
+    Exceptions from the callback propagate on purpose, as the module docstring
+    explains. This is a function so that every call site reads the same way and
+    the ``None`` check lives in one place.
     """
     if progress is not None:
         progress(done, total)
@@ -74,16 +77,16 @@ def throttled(
 ) -> Optional[ProgressCallback]:
     """Wrap ``progress`` so it fires at most ``steps`` times.
 
-    A 200-wavelength scan otherwise emits 200 queued cross-thread signals to
-    drive a bar with ~100 distinguishable states, and the updates it drops are
-    the ones nobody could have seen.
+    Without this wrapper, a 200-wavelength scan emits 200 queued cross-thread
+    signals to drive a bar with ~100 distinguishable states, and the updates the
+    wrapper drops are ones that could not have been seen.
 
     Only the reporting is throttled. The wrapper calls the inner callback on
     every step where the bucket changes, but a caller that also checks for
-    cancellation must do so on *every* call, unthrottled -- otherwise a Cancel
-    click lands at the next percent rather than the next unit of work. That is
-    why cancellation is not built into this function: composing it here would
-    make the throttle silently apply to both.
+    cancellation must do so on every call, unthrottled; otherwise a Cancel
+    click takes effect at the next percent and not at the next unit of work.
+    For this reason cancellation is not built into this function, since
+    composing it here would make the throttle silently apply to both.
 
     Returns ``None`` unchanged when given ``None``, so it is safe to wrap an
     absent callback.
@@ -113,14 +116,14 @@ def cancelling(
 ) -> ProgressCallback:
     """Build a callback that reports, then raises :class:`Cancelled` if asked to.
 
-    ``should_stop`` is polled on **every** call, not on throttled ones, so a
-    cancel lands at the next unit of work. Pass an already-:func:`throttled`
+    ``should_stop`` is polled on every call, without throttling, so a cancel
+    takes effect at the next unit of work. Pass an already-:func:`throttled`
     callback as ``progress`` when the reporting itself should be rate-limited::
 
         report = cancelling(throttled(on_progress), event.is_set)
 
-    Reporting happens before the check so the bar shows the last completed unit
-    rather than freezing one step short of where the work stopped.
+    Reporting happens before the check so that the bar shows the last completed
+    unit and does not freeze one step short of where the work stopped.
     """
 
     def report_and_check(done: int, total: int) -> None:

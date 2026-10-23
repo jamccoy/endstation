@@ -1,27 +1,27 @@
-"""A matplotlib figure in a Qt window, with the parts everyone rewrites.
+"""A matplotlib figure in a Qt window, with the parts every project rewrites.
 
-Three things, each of which existed in four or more copies across the projects
-this was drawn from:
+The module provides three components, each of which existed in four or more
+copies across the projects it was drawn from.
 
-The placeholder. An empty axes with centred grey text, for the state before
-anything has been computed. Six lines, written out four times in one repository
-alone, and the reason a fresh window looked broken in one tab and explained
-itself in another.
+The placeholder is an empty axes with centred grey text, for the state before
+anything has been computed. It is six lines, which were written out four times
+in one repository alone, and its inconsistent use was the reason a fresh window
+looked broken in one tab and explained itself in another.
 
-The refusal. The same idea in a different colour, for work that was
-correctly declined -- settings that cannot tile, a geometry with no propagating
-orders. Rendering a refusal as an error dialog is a category mistake: the
-software did the right thing, and the user needs to read why, not dismiss a
-box. Keeping it on the canvas puts the explanation where the result would have
-been.
+The refusal applies the same idea in a different colour, for work that was
+correctly declined, such as settings that cannot tile or a geometry with no
+propagating orders. Rendering a refusal as an error dialog would misclassify
+it: the software behaved correctly, and the user needs to read the reason
+instead of dismissing a box. Keeping it on the canvas places the explanation
+where the result would have been.
 
-The visibility gate. A figure in a hidden tab still repaints on every
-redraw request. Cheap for one line plot, not cheap for a coverage raster or a
-3-D layout, and entirely wasted -- nobody is looking. :meth:`FigurePane.draw`
-defers to the next ``showEvent`` instead.
+The visibility gate addresses the fact that a figure in a hidden tab still
+repaints on every redraw request. This is cheap for one line plot but not for a
+coverage raster or a 3-D layout, and the work is wasted because nobody is
+looking. :meth:`FigurePane.draw` defers to the next ``showEvent`` instead.
 
-Everything here runs on the main thread. Workers return plain data; the window
-draws from it. See rule 2 in :mod:`endstation.qt`.
+Everything here runs on the main thread. Workers return plain data, and the
+window draws from it. See rule 2 in :mod:`endstation.qt`.
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ def show_message(
 ) -> None:
     """Replace a figure's contents with one centred line of text.
 
-    Works on any ``matplotlib.figure.Figure``, so it is usable from a plotting
-    module that has no Qt in it at all -- which is most of them.
+    It works on any ``matplotlib.figure.Figure``, so it can be used from a
+    plotting module that contains no Qt at all, as most of them do not.
     """
     figure.clear()
     axes = figure.add_subplot(111)
@@ -67,10 +67,11 @@ def show_message(
 class FigurePane(QWidget):
     """A figure, its canvas, and optionally a navigation toolbar.
 
-    Composition rather than subclassing ``FigureCanvasQTAgg``. Both idioms were
-    in use, sometimes in the same project; composition wins because a pane that
-    *has* a canvas can also have a toolbar, a placeholder and a visibility gate
-    without any of them becoming part of the canvas's own interface.
+    The pane uses composition instead of subclassing ``FigureCanvasQTAgg``.
+    Both idioms were in use, sometimes in the same project. Composition was
+    chosen because a pane that holds a canvas can also hold a toolbar, a
+    placeholder and a visibility gate without any of them becoming part of the
+    canvas's own interface.
 
     Draw into :attr:`figure` and call :meth:`draw`::
 
@@ -122,16 +123,16 @@ class FigurePane(QWidget):
     # -- drawing ---------------------------------------------------------
 
     def clear_axes(self, *args, **kwargs):
-        """Clear the figure and return one fresh axes. The common opening move."""
+        """Clear the figure and return one fresh axes, the usual first step."""
         self.figure.clear()
         return self.figure.add_subplot(*(args or (111,)), **kwargs)
 
     def draw(self) -> None:
         """Repaint now, or at the next ``showEvent`` if this pane is hidden.
 
-        The deferral is the point: a hidden tab's figure is redrawn for nobody,
-        and on a raster or a 3-D scene that is a visible stall in whichever tab
-        the user *is* looking at.
+        The deferral is the purpose of this method. A hidden tab's figure would
+        otherwise be redrawn although nobody can see it, and on a raster or a
+        3-D scene that causes a visible stall in the tab the user is looking at.
         """
         if self.isVisible():
             self._pending_draw = False
@@ -153,19 +154,19 @@ class FigurePane(QWidget):
     # -- states ----------------------------------------------------------
 
     def show_placeholder(self, message: str) -> None:
-        """Nothing computed yet. Grey, and not a problem."""
+        """Show that nothing has been computed yet, in grey."""
         show_message(self.figure, message, color=PLACEHOLDER_COLOR)
         self.draw()
 
     def show_refusal(self, message: str) -> None:
-        """Work correctly declined. Firebrick, and not an error dialog."""
+        """Show that work was correctly declined, in firebrick on the canvas."""
         show_message(self.figure, message, color=REFUSAL_COLOR, weight="bold")
         self.draw()
 
     def plot(self, draw_fn: Callable[..., None], *args, **kwargs) -> None:
         """Clear, call ``draw_fn(figure, *args, **kwargs)``, then repaint.
 
-        Lets a toolkit-free plotting module own the drawing. That module takes
+        This allows a toolkit-free plotting module to own the drawing. That module takes
         a figure and knows nothing about Qt, so it stays testable under Agg.
         """
         self.figure.clear()
