@@ -1,26 +1,27 @@
-"""Field-level validation results, collected rather than raised.
+"""Field-level validation results, collected instead of raised.
 
-The pure half of a GUI. Widget code is the least testable part of any project,
-and the value of a scientific application is defensible numbers, so parsing and
-validation are kept out of the widgets entirely: a bug in the untested layer
-then produces a wrong *layout*, never a wrong *number*.
+This module is the pure half of a GUI. Widget code is the least testable part
+of any project, and the value of a scientific application lies in defensible
+numbers, so parsing and validation are kept out of the widgets entirely. A bug
+in the untested layer can then produce a wrong layout but never a wrong number.
 
-Errors are collected, not raised on the first failure. A form with three bad
-fields should report three problems, not make the user fix them one at a time
-and rediscover the next one on each attempt. That single decision is why this is
-a data type rather than an exception.
+Errors are collected instead of being raised on the first failure. A form with
+three bad fields should report all three problems at once, so that the user
+does not have to fix them one at a time and rediscover the next one on each
+attempt. This decision is the reason the result is a data type and not only an
+exception.
 
-Three layers answer three different questions, and keeping them apart is what
-makes a validation routine usable outside a GUI:
+Three layers answer three different questions, and keeping them separate
+allows a validation routine to be used outside a GUI:
 
-* the file/document layer -- is this a usable *configuration* at all?
-* here, and the ``build()`` functions that use it -- is this *field* usable?
-* the widget -- will this *control* accept it?
+* the file or document layer asks whether this is a usable configuration at all;
+* this module, and the ``build()`` functions that use it, ask whether this field is usable;
+* the widget asks whether this control will accept the value.
 
 A value outside a spin box's range is therefore reported here and passed through
 verbatim; the clamping belongs in the panel, where the control that enforces the
 range lives. Clamping at this layer would make the routine useless to a
-caller that has no widget -- a script, a test, or a CLI.
+caller that has no widget, such as a script, a test, or a CLI.
 """
 
 from __future__ import annotations
@@ -35,9 +36,9 @@ __all__ = ["FieldError", "FormErrors", "ErrorCollector"]
 class FieldError:
     """A problem with one named input.
 
-    ``field`` is the caller's own name for the control, not a display label:
-    it is what lets a window attach the message to the offending widget rather
-    than dumping every problem into one status line.
+    ``field`` is the caller's own name for the control and is not a display
+    label. It allows a window to attach the message to the offending widget
+    instead of placing every problem in one status line.
     """
 
     field: str
@@ -51,13 +52,13 @@ class FieldError:
 class FormErrors(Exception):
     """Every problem found in one pass over a form.
 
-    Both a value and an exception, on purpose. Downstream projects disagree
-    on which they want -- one returns ``(settings, errors)``, another raises --
-    and forcing them to converge would mean rewriting working call sites for no
-    behavioural gain. Being both lets each keep its own contract while sharing
-    the type that crosses between them.
+    The class is deliberately both a value and an exception. Downstream
+    projects differ on which they want (one returns ``(settings, errors)`` and
+    another raises), and forcing them to converge would mean rewriting working
+    call sites for no behavioural gain. Because the type is both, each project
+    keeps its own contract while sharing the type that passes between them.
 
-    Falsy when empty, so ``if errors:`` reads correctly.
+    An instance is falsy when empty, so ``if errors:`` reads correctly.
     """
 
     errors: tuple[FieldError, ...] = ()
@@ -89,8 +90,8 @@ class FormErrors(Exception):
 class ErrorCollector:
     """Accumulates :class:`FieldError`s during one validation pass.
 
-    The `add`-then-`result` shape exists so a `build()` function reads as a
-    straight run of independent checks rather than as nested conditionals::
+    The `add`-then-`result` shape allows a `build()` function to read as a
+    straight run of independent checks instead of nested conditionals::
 
         errors = ErrorCollector()
         if period <= 0:

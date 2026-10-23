@@ -3,18 +3,19 @@
 
     endstation-icon --module mypkg.gui.icon --output resources/MyApp.icns
 
-The artwork is **drawn by the project**, not stored here: each project exposes a
-module with a ``render(path, size)`` function -- usually matplotlib patches --
-and this turns its 1024 px master into the ten-variant iconset macOS wants, then
-packs it with ``iconutil``.
+The artwork is drawn by the project and is not stored here. Each project
+exposes a module with a ``render(path, size)`` function (usually drawing
+matplotlib patches), and this tool turns its 1024 px master into the
+ten-variant iconset macOS wants, then packs it with ``iconutil``.
 
-Generating rather than storing keeps the icon reproducible and editable in the
-same language as the rest of the project, and it is why there is no binary asset
-in any of these repositories.
+Generating the icon instead of storing it keeps it reproducible and editable in
+the same language as the rest of the project, and it is the reason there is no
+binary asset in any of these repositories.
 
-The ten ``sips`` calls and the exact filenames are the whole content of this
-module, and they existed verbatim in three projects. ``iconutil`` is fussy about
-those names: get one wrong and it fails with a message that does not say which.
+The ten ``sips`` calls and the exact filenames make up the content of this
+module, and they existed verbatim in three projects. ``iconutil`` is strict
+about those names: if one is wrong, it fails with a message that does not say
+which.
 """
 
 from __future__ import annotations
@@ -58,8 +59,8 @@ def _require_macos_tools() -> None:
 def render_master(module_name: str, path: Path, size: int = 1024) -> Path:
     """Call the project's own ``render(path, size)``.
 
-    The module is imported by name so the project keeps ownership of its
-    artwork; this only knows the calling convention.
+    The module is imported by name so that the project keeps ownership of its
+    artwork; this function knows only the calling convention.
     """
     module = importlib.import_module(module_name)
     render = getattr(module, "render", None)

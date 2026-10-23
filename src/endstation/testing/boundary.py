@@ -1,20 +1,21 @@
 """Enforcing that the pure layer stays pure.
 
 A project keeps its toolkit imports inside one subpackage so the rest can be
-tested without a display. That is a promise, and a promise nothing checks is a
-convention -- it survives exactly until someone needs "just a QColor" in a
-module that was pure, and the headless tests quietly stop running.
+tested without a display. If nothing checks that arrangement, it is only a
+convention, and it lasts until someone needs a single QColor in a module that
+was pure, at which point the headless tests quietly stop running.
 
-A subprocess import, not an AST scan. Both forms existed across the
-projects this was drawn from, and the subprocess one is strictly better: it
-catches *transitive* imports. A pure module that grows an innocent import of
-something which itself pulls in Qt passes a source scan and fails here, which is
-the right way round. The cost is one interpreter start per module, which is
-nothing next to a suite that already builds windows.
+The check imports each module in a subprocess instead of scanning its AST. Both
+forms existed across the projects this was drawn from, and the subprocess form
+is strictly better because it catches transitive imports. A pure module that
+gains an innocent-looking import of something which itself pulls in Qt passes a
+source scan but fails here, as it should. The cost is one interpreter start per
+module, which is negligible next to a suite that already builds windows.
 
-:func:`assert_qt_free` is the general form -- it takes the forbidden top-level
-names, so the same helper covers "no Qt in the core" and "no matplotlib in the
-CLI".
+:func:`assert_import_free` is the general form, which takes the forbidden
+top-level names, so the same helper covers "no Qt in the core" and "no
+matplotlib in the CLI"; :func:`assert_qt_free` is that check with the Qt
+bindings filled in.
 """
 
 from __future__ import annotations
@@ -40,19 +41,20 @@ def modules_in(
 
     Discovery matters as much as the check. The AST-scanning versions this
     replaces walked the package directory, so a newly added pure module was
-    covered the moment it existed; a hand-written list silently stops covering
-    whatever nobody remembered to add -- which is the same failure the boundary
+    covered as soon as it existed. A hand-written list silently stops covering
+    whatever nobody remembered to add, which is the same failure the boundary
     test exists to prevent, one level up.
 
     ``exclude`` names subpackages to skip, as dotted prefixes. The widget layer
-    is the obvious one: it is *supposed* to import a toolkit.
+    is the usual case, since it is meant to import a toolkit.
 
-    Walks the filesystem rather than using ``pkgutil.walk_packages``. That
-    function imports each subpackage in order to read its ``__path__``, which
-    would defeat the purpose twice over: the caller is about to import these in
-    *fresh interpreters* precisely to see what each one drags in, and a
-    subpackage needing an absent extra would raise here rather than being
-    reported. Only ``package`` itself is imported, to find where it lives.
+    The function walks the filesystem instead of using
+    ``pkgutil.walk_packages``. That function imports each subpackage in order
+    to read its ``__path__``, which would defeat the purpose in two ways: the
+    caller is about to import these modules in fresh interpreters specifically
+    to see what each one pulls in, and a subpackage needing an absent extra
+    would raise here instead of being reported. Only ``package`` itself is
+    imported, to find where it lives.
     """
     import importlib
 
@@ -83,7 +85,7 @@ print('\\n'.join(sorted({{n.split('.')[0] for n in sys.modules}} & set(forbidden
 def leaked_imports(module: str, forbidden: Sequence[str]) -> tuple[str, ...]:
     """Import ``module`` in a fresh interpreter; return which ``forbidden`` it reached.
 
-    Raises :class:`RuntimeError` if the module cannot be imported at all -- that
+    Raises :class:`RuntimeError` if the module cannot be imported at all. That
     is a different failure from a leak, and reporting it as one would send a
     maintainer looking for an import that is not there.
     """
@@ -113,8 +115,8 @@ def assert_import_free(
 ) -> None:
     """Assert that none of ``modules`` reaches any of ``forbidden``.
 
-    ``reason`` is appended to the failure so the message says *why* the boundary
-    exists, not merely that it was crossed.
+    ``reason`` is appended to the failure so that the message states why the
+    boundary exists as well as that it was crossed.
     """
     modules = tuple(modules)
     assert modules, "no modules given; the check would pass vacuously"
