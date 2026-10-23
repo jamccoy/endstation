@@ -72,7 +72,7 @@ uv add endstation                  # as a dependency of a uv project
 Or from git, pinned to a tag:
 
 ```bash
-pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.2.3"
+pip install "endstation @ git+https://github.com/jamccoy/endstation.git@v0.2.4"
 ```
 
 For working on endstation itself:

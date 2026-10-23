@@ -8,13 +8,24 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
-## Unreleased
+## 0.2.4
 
 ### Changed
 
+- The README, which is the PyPI page, the changelog and every docstring are
+  rewritten in plain prose, without slogan headings, closing aphorisms or
+  emphasis. No code or interface changed: each module's syntax tree with its
+  docstrings blanked is identical to 0.2.3's.
 - A test holds the README's install-from-git pin to `__version__`, so a
   release commit that forgets to move it fails CI instead of publishing a
   README that pins the previous release.
+
+### Fixed
+
+- The `endstation.testing.boundary` module docstring named `assert_qt_free`
+  as the general form of the import check. The general form is
+  `assert_import_free`, which takes the forbidden names; `assert_qt_free` is
+  that check with the Qt bindings filled in.
 
 ## 0.2.3
 
