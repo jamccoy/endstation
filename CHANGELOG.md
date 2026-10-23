@@ -67,11 +67,11 @@ predates `publish.yml`, so `pip install endstation` starts here.
   even when matplotlib is already on Agg. The default is unchanged and still
   leaves an explicit `MPLBACKEND=Agg` alone.
 
-  Both answers are correct for different callers, which is why this is a keyword
-  rather than a fix. A library respects a suite that asked for Agg; an
-  application that wants its tests to exercise the backend it actually ships
-  does not. `eblfrac` needed the second and kept a forked copy of this function
-  to get it — that fork can now go.
+  Both behaviours are correct for different callers, so the choice is a keyword
+  argument. A library should respect a test suite that asked for Agg, whereas
+  an application may want its tests to exercise the backend it ships with.
+  `eblfrac` needed the second behaviour and kept a forked copy of this function
+  to obtain it; that copy can now be removed.
 
 - Coverage measurement (`pytest-cov` in `dev`, `[tool.coverage]` in
   `pyproject.toml`), with a ratchet floor rather than a target.
@@ -82,27 +82,29 @@ predates `publish.yml`, so `pip install endstation` starts here.
 
 ### Changed
 
-- **CI measures coverage with `coverage run -m pytest`, not `pytest --cov`.**
-  The two disagree by 8 points of total coverage for this package specifically.
-  pytest imports `pytest11` entry-point plugins before its own conftest — which
-  is the whole reason `endstation.testing.plugin` is a plugin — and that plugin
+- CI measures coverage with `coverage run -m pytest` instead of `pytest --cov`.
+  The two disagree by 8 points of total coverage for this package in particular.
+  pytest imports `pytest11` entry-point plugins before its own conftest (which
+  is why `endstation.testing.plugin` is written as a plugin), and that plugin
   imports the entire dependency-free core. Under `--cov` all of it is imported
   before coverage starts recording, so `forms.py` reported 31% when it is 88%
   covered and `plugin.py` reported 0%. Downstream suites that adopt coverage
   will hit the same thing.
 
 - The CI "did the suite quietly shrink" gate no longer counts passing tests. A
-  floor of 130 against a suite of 186 tolerated a 30% collapse, and it needed
-  raising by hand whenever the suite grew, so it only ever rotted downward. It
-  now asserts directly on what that number was reaching for: no test skipped
-  with `"the qt extra is not installed"` in a job that installs the toolkit.
+  floor of 130 against a suite of 186 tolerated a 30% collapse, and it had to be
+  raised by hand whenever the suite grew, so in practice it only fell further
+  behind. It now asserts directly on the condition that number stood for: no
+  test is skipped with `"the qt extra is not installed"` in a job that installs
+  the toolkit.
   A low absolute floor remains as a backstop against total collection failure.
 
 - Every CI step containing a `python - <<'PY'` heredoc declares `shell: bash`.
   Groundwork for a `windows-latest` leg: PowerShell is that runner's default
-  shell and cannot parse a heredoc, failing with an error that names neither.
-  `tests/test_packaging.py` now asserts this, because the failure would
-  otherwise appear only on the leg added last and read as "Windows is broken."
+  shell and cannot parse a heredoc, and the resulting error names neither.
+  `tests/test_packaging.py` now asserts this, because otherwise the failure
+  would appear only on the newly added leg and could be mistaken for a general
+  Windows problem.
 
 ### Fixed
 
@@ -112,8 +114,8 @@ predates `publish.yml`, so `pip install endstation` starts here.
   `docs/markdown.py` is deliberately written without. `copier.yml` documented a
   `gh:jamccoy/endstation-template` repository that does not exist.
 
-  A message naming an extra that does not exist is the exact failure
-  `endstation.optional` was written to replace.
+  A message naming an extra that does not exist is the kind of error
+  `endstation.optional` was written to prevent.
 
 ## 0.1.0
 
