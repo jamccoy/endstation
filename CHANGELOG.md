@@ -1,9 +1,9 @@
 # Changelog
 
 Notable changes, newest first. This project is pre-1.0 and four projects depend
-on it, so the point of this file is narrower than a release note: **it is where
-a breaking change is stated before it is discovered.** Until 1.0, a minor
-version may break an interface; what it may not do is break one silently.
+on it, so the main purpose of this file is to record each breaking change before a
+dependent project encounters it. Until 1.0, a minor version may change an
+interface, but every such change is listed here.
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
