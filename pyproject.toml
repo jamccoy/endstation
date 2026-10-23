@@ -51,7 +51,18 @@ dependencies = []
 # ModuleNotFoundError, which is the exact failure this package exists to
 # replace. Declaring it is the fix; `require_extra` in use_qt_backend is the
 # backstop for anyone who installs the pieces by hand.
-qt = ["PySide6-Essentials>=6.7", "matplotlib>=3.8"]
+#
+# PySide6 6.12.0 releases a reference to True or False that it does not own.
+# Before Python 3.12 those objects are not immortal, so after heavy GUI use the
+# count reaches zero during finalization and the interpreter aborts with
+# "Fatal Python error: bool_dealloc". gratinglab measured it on 3.11 on
+# 2026-10-22 (6.9.3, 6.10.3 and 6.11.2 clean twice each, 6.12.0 crashing twice);
+# 3.10 shares the mechanism. Only that release is excluded, and only below 3.12.
+qt = [
+    "PySide6-Essentials>=6.7,!=6.12.0; python_version < '3.12'",
+    "PySide6-Essentials>=6.7; python_version >= '3.12'",
+    "matplotlib>=3.8",
+]
 mpl = ["matplotlib>=3.8"]
 # Rendering documentation needs matplotlib for the equations and nothing else:
 # the markdown subset Qt actually renders is small enough that a full CommonMark
@@ -62,7 +73,8 @@ testing = ["pytest>=7"]
 dev = [
     "pytest>=7",
     "pytest-qt>=4.5",
-    "PySide6-Essentials>=6.7",
+    "PySide6-Essentials>=6.7,!=6.12.0; python_version < '3.12'",
+    "PySide6-Essentials>=6.7; python_version >= '3.12'",
     "matplotlib>=3.8",
     "ruff>=0.16",
     "copier>=9",
