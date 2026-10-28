@@ -139,3 +139,73 @@ def test_cancel_after_completion_does_not_un_finish(runner, qtbot):
     qtbot.waitUntil(lambda: bool(done), timeout=5_000)
     job.cancel()
     assert done == ["quick"]
+
+
+# -- the worker thread's stack ------------------------------------------------
+
+def test_the_worker_gets_a_main_thread_sized_stack(runner):
+    """A pooled thread's default stack is 512 KiB on macOS, too small for LAPACK."""
+    from endstation.qt.jobs import DEFAULT_STACK_BYTES
+
+    assert DEFAULT_STACK_BYTES == 8 * 1024 * 1024
+    assert runner.stack_size == DEFAULT_STACK_BYTES
+
+
+def test_the_stack_size_can_be_overridden(qtbot):
+    made = JobRunner(stack_size=16 * 1024 * 1024)
+    assert made.stack_size == 16 * 1024 * 1024
+
+
+@pytest.mark.parametrize("value", [None, 0])
+def test_no_stack_size_leaves_the_platform_default(qtbot, value):
+    assert JobRunner(stack_size=value).stack_size == 0
+
+
+#: Run in a child interpreter because the failure this guards against is a
+#: segfault, which would take the whole test session down with it rather than
+#: fail one test.
+_DENSE_SOLVE = """
+import numpy as np
+from PySide6.QtCore import QCoreApplication
+from endstation.qt.jobs import JobRunner
+
+app = QCoreApplication([])
+runner = JobRunner()
+seen = []
+
+def solve(progress=None):
+    rng = np.random.default_rng(0)
+    n = 400
+    a = rng.standard_normal((n, n)) + 1j * rng.standard_normal((n, n))
+    b = rng.standard_normal(n) + 1j * rng.standard_normal(n)
+    x = np.linalg.solve(a, b)
+    return float(np.abs(a @ x - b).max())
+
+runner.start(solve, on_done=seen.append, on_fail=seen.append)
+assert runner.wait(60_000), "the solve did not finish"
+app.processEvents()
+print(seen[0])
+"""
+
+
+def test_a_dense_complex_solve_inside_a_job_does_not_crash():
+    """The crash gratinglab met: np.linalg.solve segfaulting on a QThread.
+
+    It reproduces on macOS, where a secondary thread's default stack is
+    512 KiB. Windows gives a pooled thread enough stack even without the fix,
+    so there this test only shows that a solve inside a job works; the test
+    above it is what holds the stack size itself.
+    """
+    import subprocess
+    import sys
+
+    pytest.importorskip("numpy")
+    probe = subprocess.run(
+        [sys.executable, "-c", _DENSE_SOLVE],
+        capture_output=True, encoding="utf-8", errors="replace", timeout=120,
+    )
+    assert probe.returncode == 0, (
+        f"the child exited {probe.returncode}; a negative code or a Windows "
+        f"access violation means the worker overran its stack\n{probe.stderr}"
+    )
+    assert float(probe.stdout.split()[-1]) < 1e-8

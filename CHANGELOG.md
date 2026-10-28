@@ -8,6 +8,35 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Added
+
+- `endstation.qt.gc_guard`, which keeps Python's cycle collector on the GUI
+  thread. While an object holds the guard, automatic collection is off and a
+  timer on the GUI thread collects whenever the generation counts say a
+  collection is due; the last holder's `destroyed` signal turns automatic
+  collection back on, and an `atexit` hook does the same for a holder that is
+  never deleted. Without it the collector runs on whichever thread allocates
+  past its threshold, which is often a worker, and freeing a Qt object there
+  segfaulted gratinglab on macOS; the exit hook prevents the `bool_dealloc`
+  abort that Python's final collection caused after Qt was gone. It is
+  gratinglab's `gratinglab.gui.qt.gc_guard` with unchanged behaviour, so
+  gratinglab can import it from here instead. It is opt-in because it turns
+  automatic collection off for the whole process: call `guard(window)` from a
+  main window's constructor, or pass `gc_guard=True` to `JobRunner`.
+- `JobRunner(stack_size=..., gc_guard=False)` keywords, and a read-only
+  `JobRunner.stack_size`.
+
+### Fixed
+
+- `JobRunner`'s worker thread now has an 8 MiB stack
+  (`endstation.qt.jobs.DEFAULT_STACK_BYTES`) instead of the platform's default
+  for secondary threads, which is 512 KiB on macOS. LAPACK's dense complex
+  solve overruns the smaller stack, so `np.linalg.solve` on a matrix a few
+  hundred rows square inside a job crashed the process, as it did in
+  gratinglab. `stack_size=None` restores the platform default.
+
 ## 0.2.5
 
 ### Fixed

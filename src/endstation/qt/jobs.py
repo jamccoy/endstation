@@ -33,7 +33,18 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 
 from ..progress import Cancelled
 
-__all__ = ["Job", "JobRunner", "JobSignals"]
+__all__ = ["DEFAULT_STACK_BYTES", "Job", "JobRunner", "JobSignals"]
+
+#: Stack size for the runner's worker thread, matching the main thread's
+#: default on macOS and Linux. A pooled thread otherwise gets the platform's
+#: secondary-thread default, 512 KiB on macOS, and LAPACK's dense complex solve
+#: overruns that: ``np.linalg.solve`` on a few-hundred-square matrix segfaulted
+#: gratinglab's process on such a thread while running fine on the main thread
+#: and on a plain ``threading.Thread``. A crash of that kind kills the whole
+#: application rather than raising, so the larger stack is the default and not
+#: an option to remember. The memory is reserved address space, committed only
+#: as the stack actually grows.
+DEFAULT_STACK_BYTES = 8 * 1024 * 1024
 
 
 class JobSignals(QObject):
@@ -162,15 +173,50 @@ class JobRunner(QObject):
     bar would appear and never clear.
     """
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(
+        self,
+        parent: QObject | None = None,
+        *,
+        stack_size: int | None = DEFAULT_STACK_BYTES,
+        gc_guard: bool = False,
+    ) -> None:
+        """Create a runner with one worker thread.
+
+        ``stack_size`` is the worker thread's stack in bytes, 8 MiB by default
+        (see :data:`DEFAULT_STACK_BYTES`). ``None`` or ``0`` leaves the
+        platform's default, which is too small on macOS for dense linear
+        algebra.
+
+        ``gc_guard`` runs Python's cycle collector on the GUI thread for as long
+        as this runner exists, through :func:`endstation.qt.gc_guard.guard`.
+        It is off by default because it disables automatic collection for the
+        whole process. Turn it on in an application whose windows or figures
+        can become garbage while a job runs, and construct the runner on the
+        GUI thread when you do. See :mod:`endstation.qt.gc_guard`.
+        """
         super().__init__(parent)
         self._pool = QThreadPool()
         self._pool.setMaxThreadCount(1)
+        if stack_size:
+            # Before the first start(): a pool thread takes its stack size when
+            # it is created, and this pool creates its one thread lazily.
+            self._pool.setStackSize(stack_size)
         self._job: Job | None = None
         self._busy = False
+        if gc_guard:
+            # Imported here so that a runner without the guard never registers
+            # the guard's atexit hook.
+            from .gc_guard import guard
+
+            guard(self)
 
     def busy(self) -> bool:
         return self._busy
+
+    @property
+    def stack_size(self) -> int:
+        """The worker thread's stack in bytes; 0 means the platform default."""
+        return self._pool.stackSize()
 
     @property
     def job(self) -> Job | None:
