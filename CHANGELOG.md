@@ -8,7 +8,7 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
-## Unreleased
+## 0.2.6
 
 ### Added
 

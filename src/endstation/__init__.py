@@ -34,7 +34,7 @@ from .optional import MissingExtra, optional_module, require_extra
 from .paths import MissingData, data_root, find_data, find_project_root, require_dir
 from .progress import Cancelled, cancelling, report, throttled
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 __all__ = [
     "__version__",
