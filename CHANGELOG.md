@@ -8,6 +8,36 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Added
+
+- `endstation.files`: `atomic_open` and `atomic_write`, which write to a
+  temporary file beside the target and move it into place only when the write
+  finished, so a crash or an exception leaves the old file rather than a
+  truncated one. The new file gets the same permissions `open` would give it.
+  Standard library only.
+- `endstation.theme`: the `Theme` dataclass (window palette, plot surfaces,
+  `ok`/`warn`/`bad`), five themes (Light, Dark, Solarized Light and Dark, High
+  contrast), `contrast` (WCAG 2) and `rc_params` for matplotlib. Standard
+  library only. An application adds colours of its own by subclassing `Theme`
+  and building its themes with `Theme.extend`. The values are gratinglab's.
+- `endstation.qt.settings`: `configure(organization, application, env=...)`
+  names the application's `QSettings` store once, and `env` names a variable
+  that redirects it to an INI file for a test suite.
+- `endstation.qt.theming`: `install(app, themes)` applies the saved theme
+  under Fusion and follows the system's light or dark setting when the choice
+  is "System"; `ThemeMenu` is the View > Theme submenu, kept in step across
+  windows; `subscribe`, `current` and `swatch`. Taken from gratinglab, with
+  the themes now passed in rather than fixed.
+- `endstation.qt.recent`: the last folder used per kind of file
+  (`start_in`, `remember`) and a main window's size, position and dock layout
+  (`restore_layout`, `save_layout`).
+- `endstation.qt.help_menu`: `install_help_menu`, an About box followed by
+  groups of pages the application supplies.
+- The template's window carries View > Theme and Help, remembers its layout,
+  and its tests point the settings store at a temporary file.
+
 ## 0.2.6
 
 ### Added

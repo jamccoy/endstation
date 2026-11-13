@@ -154,6 +154,41 @@ A missing data directory is reported with the name of the environment variable a
 path it resolved to. A bare `FileNotFoundError: [Errno 2]` on a path the user never
 entered gives no indication of what to change.
 
+### `endstation.files`: whole-file writes
+
+```python
+with atomic_open("profile.csv", newline="") as handle:
+    csv.writer(handle).writerows(rows)
+```
+
+The target is replaced only when the block finishes, so an export that fails
+part-way leaves the previous file, not a truncated one.
+
+### `endstation.theme` and the shared look
+
+`endstation.theme` holds the themes as data and needs nothing installed. The Qt
+half applies one and remembers what the user chose:
+
+```python
+from endstation.qt import recent, settings, theming
+from endstation.qt.help_menu import install_help_menu
+
+settings.configure("myapp", env="MYAPP_SETTINGS")   # once, at startup
+theming.install(app)                                 # or install(app, MY_THEMES)
+
+view = window.menuBar().addMenu("&View")
+view.addMenu(theming.ThemeMenu(window))
+install_help_menu(window, about_title="About myapp", about_text=lambda: "myapp 1.0",
+                  pages=[[("User guide", open_guide)]])
+recent.restore_layout(window, "main")   # and save_layout in closeEvent
+```
+
+`recent.start_in("scans")` gives a file dialog the folder last used for that
+kind of file, and `recent.remember("scans", path)` records the user's choice.
+An application with colours of its own subclasses `Theme` and builds its
+themes with `Theme.extend(endstation.theme.LIGHT, ...)`, which is what
+gratinglab does for its order and diagram colours.
+
 ### `endstation.testing`: headless test suites
 
 The plugin is registered through the `pytest11` entry point, so no conftest needs to

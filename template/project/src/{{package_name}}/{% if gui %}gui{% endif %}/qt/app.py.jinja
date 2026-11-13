@@ -1,10 +1,17 @@
-"""The application object and the window it shows."""
+"""The application object and the window it shows.
+
+Settings live in the store ``{{ package_name | upper }}_SETTINGS`` can redirect
+to an INI file (the test suite's conftest does). The window remembers its size
+and position, and carries the shared View > Theme and Help menus.
+"""
 
 from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 
+from endstation.qt import recent, settings, theming
 from endstation.qt.canvas import FigurePane
+from endstation.qt.help_menu import install_help_menu
 from endstation.qt.jobs import JobRunner
 from endstation.qt.tokens import StaleGuard
 
@@ -27,9 +34,22 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.pane)
         self.setCentralWidget(central)
 
+        # Held on the instance: a QMenu reached back through the menu bar is
+        # not reliably usable under PySide6.
+        self._view_menu = self.menuBar().addMenu("&View")
+        self._theme_menu = theming.ThemeMenu(self)
+        self._view_menu.addMenu(self._theme_menu)
+        self._help_menu = install_help_menu(
+            self,
+            about_title="About {{ project_name }}",
+            about_text=lambda: f"{{ project_name }}\nVersion {__version__}",
+        )
+        recent.restore_layout(self, "main")
+
     def closeEvent(self, event):  # noqa: N802 - Qt's spelling
         # Abandon anything in flight before the widgets it would draw into are
         # deleted, then give the pool a moment to unwind.
+        recent.save_layout(self, "main")
         self._guard.invalidate()
         self._runner.cancel()
         self._runner.wait(5_000)
@@ -37,9 +57,11 @@ class MainWindow(QMainWindow):
 
 
 def main(argv: list[str] | None = None) -> int:
+    settings.configure("{{ project_slug }}", env="{{ package_name | upper }}_SETTINGS")
     app = QApplication.instance() or QApplication(argv or [])
     app.setApplicationName("{{ project_name }}")
     app.setApplicationVersion(__version__)
+    theming.install(app)
     window = MainWindow()
     window.show()
     return app.exec()

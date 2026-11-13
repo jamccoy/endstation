@@ -10,6 +10,18 @@ conftest is imported before ``pytest_configure`` runs.
 All of it uses ``setdefault``, so ``QT_QPA_PLATFORM=cocoa pytest tests/`` still
 opens a real window -- which is the fastest way to debug a layout problem.
 """
+{%- if gui %}
+
+import os
+import tempfile
+from pathlib import Path
+
+# The window's settings (theme, layout) go to an INI file of the suite's own,
+# so no test reads or writes the user's settings.
+os.environ["{{ package_name | upper }}_SETTINGS"] = str(
+    Path(tempfile.mkdtemp(prefix="{{ project_slug }}-settings-")) / "settings.ini"
+)
+{%- endif %}
 {% if research_data %}
 import pytest
 

@@ -22,6 +22,8 @@ CORE_MODULES = (
     "endstation.progress",
     "endstation.forms",
     "endstation.paths",
+    "endstation.files",
+    "endstation.theme",
 )
 
 #: Third-party packages the core must never reach, directly or transitively.
