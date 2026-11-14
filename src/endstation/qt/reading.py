@@ -7,9 +7,10 @@ rather than longer lines. :func:`render_into` converts a markdown page with
 :mod:`endstation.docs.markdown`, sized to that font, and registers each
 equation's image with the document.
 
-Equations are images in the text colour, so a window showing one should
-re-render when the theme changes (``endstation.qt.theming.subscribe``), not
-only repaint.
+Equations are images in the text colour, and a table's rules and header
+shading are the theme's grid and alternate-base colours, both fixed when the
+page is set. So a window showing a page should re-render it when the theme
+changes (``endstation.qt.theming.subscribe``), not only repaint.
 """
 
 from __future__ import annotations
@@ -25,9 +26,11 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QTextBrowser, QWidget
 
+from .. import theme as _theme
 from ..docs import markdown
+from . import theming
 
-__all__ = ["ReadingBrowser", "render_into", "text_color"]
+__all__ = ["ReadingBrowser", "render_into", "style_sheet", "text_color"]
 
 #: Body text relative to the application font. A page is paragraphs of prose,
 #: and the 9 pt that suits a button is small for that.
@@ -42,9 +45,28 @@ READING_WIDTH_EMS = 50
 #: than the column.
 READING_MARGIN = 24
 
-#: Space around tables, which Qt otherwise sets flush against the paragraph
-#: above them.
-_STYLE = "table { margin-top: 6px; margin-bottom: 10px; } th { text-align: left; }"
+
+def style_sheet(theme: _theme.Theme) -> str:
+    """The page's default style sheet, in ``theme``'s colours.
+
+    Tables get space around them, which Qt otherwise sets flush against the
+    paragraph above, single rules in the grid colour rather than Qt's grey
+    double ones, and a header row shaded in the alternate base colour.
+
+    Width and style are spelled out for the cells as well as the table. Qt
+    draws a cell border as outset unless told otherwise, which bevels the
+    Light theme's grid grey to white and leaves the inner rules invisible,
+    and without a width a collapsed rule comes out three pixels thick.
+    """
+    return (
+        "table { margin-top: 6px; margin-bottom: 10px;"
+        f" border-collapse: collapse; border-width: 1px; border-style: solid;"
+        f" border-color: {theme.grid}; }}"
+        f" td, th {{ border-width: 1px; border-style: solid;"
+        f" border-color: {theme.grid}; }}"
+        f" th {{ text-align: left; background-color: {theme.alt_base}; }}"
+    )
+
 
 #: Extra space between lines, as a fraction of the font's pixel size. A fixed
 #: distance rather than CSS ``line-height: 135%``, which scales each line's own
@@ -61,7 +83,6 @@ class ReadingBrowser(QTextBrowser):
         font.setPointSizeF(font.pointSizeF() * READING_SCALE)
         self.setFont(font)
         self.document().setDefaultFont(font)
-        self.document().setDefaultStyleSheet(_STYLE)
         self._widest_image = 0.0
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt's spelling
@@ -92,6 +113,9 @@ class ReadingBrowser(QTextBrowser):
         root.setFrameFormat(frame)
 
     def setHtml(self, text: str) -> None:  # noqa: N802 - Qt's spelling
+        # The style sheet is read as the HTML is parsed, so the theme in
+        # effect now is the one the page is set in.
+        self.document().setDefaultStyleSheet(style_sheet(theming.current()))
         # setHtml replaces the root frame's format along with the content.
         super().setHtml(text)
         leading = QTextBlockFormat()
