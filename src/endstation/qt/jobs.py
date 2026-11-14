@@ -16,24 +16,30 @@ thread was still finishing. That is a crash and not an exception, so a
 front-end cannot defend against it. Letting Qt own the thread lifetime removes
 that class of bug entirely.
 
-Both cancellation mechanisms are used here, and they are not redundant. Raising
-through the progress callback stops the work. The monotonic token
-(:mod:`endstation.qt.tokens`) recognises a result that was already in flight
-when Cancel was clicked and must not be rendered. Real cancellation does not
-remove the race the token covers, since a worker may finish between the click
-and the reading of the flag, so a front-end needs both mechanisms for the two
-different situations.
+Cancelling does two things, and a front-end needs both. Raising through the
+progress callback stops the work. And a job that was asked to stop never
+reaches the caller's ``on_done`` or ``on_fail``: a worker may finish between
+the click and the next progress report, so a result can arrive after Cancel,
+and the runner hands it to ``on_cancel`` instead. That second half is what a
+token (:mod:`endstation.qt.tokens`) did by hand in every window; the runner
+does it once, on the GUI thread, where the click and the delivery are ordered.
+
+After a Cancel the next job can start at once. It queues behind the cancelled
+one, which is still unwinding on the single worker thread, and runs when that
+finishes. gratinglab's windows let a user solve again straight after a Cancel,
+and refusing that until a long solve noticed its flag would read as a hang.
 """
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any, Callable
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 
-from ..progress import Cancelled
+from ..progress import Cancelled, throttled
 
-__all__ = ["DEFAULT_STACK_BYTES", "Job", "JobRunner", "JobSignals"]
+__all__ = ["DEFAULT_STACK_BYTES", "Job", "JobRunner", "JobSignals", "describe_exception"]
 
 #: Stack size for the runner's worker thread, matching the main thread's
 #: default on macOS and Linux. A pooled thread otherwise gets the platform's
@@ -45,6 +51,11 @@ __all__ = ["DEFAULT_STACK_BYTES", "Job", "JobRunner", "JobSignals"]
 #: an option to remember. The memory is reserved address space, committed only
 #: as the stack actually grows.
 DEFAULT_STACK_BYTES = 8 * 1024 * 1024
+
+
+def describe_exception(exc: BaseException) -> str:
+    """The default text for a failed job: ``"ValueError: message"``."""
+    return f"{type(exc).__name__}: {exc}"
 
 
 class JobSignals(QObject):
@@ -63,11 +74,22 @@ class JobSignals(QObject):
 class Job(QRunnable):
     """Runs one callable on a pooled thread and reports what happened.
 
-    Exactly one of ``finished`` / ``failed`` / ``cancelled`` is emitted.
+    Exactly one of ``finished`` / ``failed`` / ``cancelled`` is emitted. These
+    are the raw outcome; :meth:`JobRunner.start` routes a cancelled job's late
+    result to its ``on_cancel`` instead.
 
     If ``report_progress`` is true the callable is passed a ``progress=``
     keyword. It is true by default because the keyword is what makes
     cancellation prompt; set it false for a callable that does not accept it.
+
+    Progress is emitted at most once per whole percent when ``throttle`` is
+    true (see :func:`endstation.progress.throttled`): a 200-step scan would
+    otherwise queue 200 cross-thread signals for a bar with about 100 visible
+    states. The cancel check is not throttled; it runs on every report, so a
+    Cancel takes effect at the next step, not the next percent.
+
+    ``describe`` turns an unexpected exception into the ``failed`` text. An
+    application can pass its own, to word a refusal differently from a bug.
     """
 
     def __init__(
@@ -75,6 +97,8 @@ class Job(QRunnable):
         fn: Callable[..., Any],
         *args: Any,
         report_progress: bool = True,
+        throttle: bool = True,
+        describe: Callable[[BaseException], str] = describe_exception,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -83,6 +107,8 @@ class Job(QRunnable):
         self._args = args
         self._kwargs = kwargs
         self._report_progress = report_progress
+        self._throttle = throttle
+        self._describe = describe
         self._stop = False
 
     # Convenience passthroughs so callers need not reach into `.signals`.
@@ -109,13 +135,10 @@ class Job(QRunnable):
         it only sets a flag, which the progress callback reads on the worker
         thread. A bool assignment needs no lock.
 
-        The call is a request and does not guarantee cancellation. The flag is
-        read at the next progress report, so a job that finishes first emits
-        ``finished`` and not ``cancelled``, since cancelling cannot undo
-        completed work. The effect is not noticeable on the multi-second
-        operations this class is meant for, but callers must handle either
-        outcome and cannot assume that ``cancelled`` follows every
-        :meth:`cancel`.
+        The call is a request: the flag is read at the next progress report,
+        so a job that finishes first emits ``finished``. Through
+        :meth:`JobRunner.start` that late result still goes to ``on_cancel``,
+        never ``on_done``.
         """
         self._stop = True
 
@@ -125,6 +148,8 @@ class Job(QRunnable):
 
     def run(self) -> None:
         """Entry point on the pooled worker thread."""
+        emit = self.signals.progress.emit
+        report = throttled(emit) if self._throttle else emit
 
         def on_progress(done: int, total: int) -> None:
             if self._stop:
@@ -132,7 +157,7 @@ class Job(QRunnable):
                 # cancellation prompt: the loop abandons its remaining work
                 # instead of finishing it and discarding the result.
                 raise Cancelled(f"cancelled at {done} of {total}")
-            self.signals.progress.emit(done, total)
+            report(done, total)
 
         kwargs = dict(self._kwargs)
         if self._report_progress:
@@ -149,18 +174,23 @@ class Job(QRunnable):
             # into a signal keeps the window alive and able to say what went
             # wrong. A worker that dies silently is worse than one that reports
             # badly -- the UI would wait forever for a signal that never comes.
-            self.signals.failed.emit(f"{type(exc).__name__}: {exc}")
+            try:
+                message = self._describe(exc)
+            except Exception:  # noqa: BLE001 - a broken describe must not hang the UI
+                message = describe_exception(exc)
+            self.signals.failed.emit(message)
         else:
             self.signals.finished.emit(result)
 
 
 class JobRunner(QObject):
-    """Starts jobs and tracks whether one is in flight.
+    """Starts jobs, one at a time, and tracks whether one is in flight.
 
     Jobs run one at a time by design. The operations this class is meant for
     are heavy and usually write the same preview state, so overlapping them
-    would race for both the CPU and the result; :meth:`busy` allows callers to
-    refuse new work instead.
+    would race for both the CPU and the result. :meth:`start` refuses a new
+    job while one runs, unless that one has been cancelled, in which case the
+    new job queues behind it (see the module docstring).
     """
 
     started = Signal(object)
@@ -179,6 +209,7 @@ class JobRunner(QObject):
         *,
         stack_size: int | None = DEFAULT_STACK_BYTES,
         gc_guard: bool = False,
+        describe: Callable[[BaseException], str] = describe_exception,
     ) -> None:
         """Create a runner with one worker thread.
 
@@ -193,6 +224,9 @@ class JobRunner(QObject):
         whole process. Turn it on in an application whose windows or figures
         can become garbage while a job runs, and construct the runner on the
         GUI thread when you do. See :mod:`endstation.qt.gc_guard`.
+
+        ``describe`` words an unexpected exception for ``on_fail``; see
+        :class:`Job`.
         """
         super().__init__(parent)
         self._pool = QThreadPool()
@@ -201,6 +235,7 @@ class JobRunner(QObject):
             # Before the first start(): a pool thread takes its stack size when
             # it is created, and this pool creates its one thread lazily.
             self._pool.setStackSize(stack_size)
+        self._describe = describe
         self._job: Job | None = None
         self._busy = False
         if gc_guard:
@@ -211,7 +246,8 @@ class JobRunner(QObject):
             guard(self)
 
     def busy(self) -> bool:
-        return self._busy
+        """Whether a job is running that has not been asked to stop."""
+        return self._busy and self._job is not None and not self._job.cancelling
 
     @property
     def stack_size(self) -> int:
@@ -220,6 +256,7 @@ class JobRunner(QObject):
 
     @property
     def job(self) -> Job | None:
+        """The most recently started job."""
         return self._job
 
     def start(
@@ -231,13 +268,20 @@ class JobRunner(QObject):
         on_progress: Callable[[int, int], None] | None = None,
         on_cancel: Callable[[], None] | None = None,
         report_progress: bool = True,
+        throttle: bool = True,
         **kwargs: Any,
     ) -> Job:
-        """Run ``fn`` on a pooled thread, wiring the callbacks given."""
-        if self._busy:
+        """Run ``fn`` on the worker thread, wiring the callbacks given.
+
+        Exactly one of ``on_done``, ``on_fail`` and ``on_cancel`` is called. A
+        job that was cancelled reaches only ``on_cancel``, whatever it
+        returned or raised, and its progress stops reaching ``on_progress``.
+        """
+        if self.busy():
             raise RuntimeError("a job is already running")
 
-        job = Job(fn, *args, report_progress=report_progress, **kwargs)
+        job = Job(fn, *args, report_progress=report_progress, throttle=throttle,
+                  describe=self._describe, **kwargs)
 
         # Bookkeeping first: Qt runs slots in connection order, so clearing
         # `busy` has to happen before the caller's handlers. It used to come
@@ -246,18 +290,16 @@ class JobRunner(QObject):
         # deferred forever, so the result was never drawn at all.
         for signal in (job.signals.finished, job.signals.failed,
                        job.signals.cancelled):
-            signal.connect(self._done)
-        if on_progress is not None:
-            job.signals.progress.connect(on_progress)
-        if on_done is not None:
-            job.signals.finished.connect(on_done)
-        if on_fail is not None:
-            job.signals.failed.connect(on_fail)
-        if on_cancel is not None:
-            job.signals.cancelled.connect(on_cancel)
+            signal.connect(partial(self._done, job))
+        job.signals.progress.connect(partial(self._progress, job, on_progress))
+        job.signals.finished.connect(partial(self._outcome, job, on_done, on_cancel))
+        job.signals.failed.connect(partial(self._outcome, job, on_fail, on_cancel))
+        job.signals.cancelled.connect(partial(self._cancelled, on_cancel))
 
         # Held on the runner so neither the job nor its signals object is
-        # collected while the pooled thread is still using them.
+        # collected while the pooled thread is still using them. A cancelled
+        # job that a new one replaced stays alive through the pool's queue and
+        # the connections above until its outcome is delivered.
         self._job = job
         self._busy = True
         # Announced before the job runs, so a listener cannot miss a fast job's
@@ -271,8 +313,31 @@ class JobRunner(QObject):
             self._job.cancel()
 
     def wait(self, msec: int = 30_000) -> bool:
-        """Block until the running job finishes. For teardown and tests."""
+        """Block until every started job finishes. For teardown and tests."""
         return self._pool.waitForDone(msec)
 
-    def _done(self, *_: Any) -> None:
-        self._busy = False
+    # -- delivery, on the GUI thread ---------------------------------------
+
+    def _done(self, job: Job, *_: Any) -> None:
+        # Only the newest job decides `busy`: a cancelled one finishing after
+        # its replacement started must not mark the replacement idle.
+        if job is self._job:
+            self._busy = False
+
+    @staticmethod
+    def _progress(job: Job, callback, done: int, total: int) -> None:
+        if callback is not None and not job.cancelling:
+            callback(done, total)
+
+    @staticmethod
+    def _outcome(job: Job, callback, on_cancel, value: Any) -> None:
+        if job.cancelling:
+            if on_cancel is not None:
+                on_cancel()
+        elif callback is not None:
+            callback(value)
+
+    @staticmethod
+    def _cancelled(on_cancel) -> None:
+        if on_cancel is not None:
+            on_cancel()

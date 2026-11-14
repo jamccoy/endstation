@@ -141,6 +141,160 @@ def test_cancel_after_completion_does_not_un_finish(runner, qtbot):
     assert done == ["quick"]
 
 
+# -- what cancelling promises the caller ----------------------------------------
+
+def _gate():
+    """A job that waits on an event, so a test decides when it finishes."""
+    import threading
+
+    gate = threading.Event()
+
+    def work():
+        assert gate.wait(5), "the test never released the job"
+        return "late result"
+
+    return gate, work
+
+
+def test_a_result_arriving_after_cancel_reaches_on_cancel_not_on_done(runner, qtbot):
+    """The race a token used to cover: the work finished before it read the flag."""
+    gate, work = _gate()
+    done, cancelled = [], []
+    job = runner.start(work, report_progress=False, on_done=done.append,
+                       on_cancel=lambda: cancelled.append(True))
+    job.cancel()
+    gate.set()
+    qtbot.waitUntil(lambda: bool(cancelled), timeout=5_000)
+    runner.wait(5_000)
+    assert done == [] and cancelled == [True]
+
+
+def test_a_failure_arriving_after_cancel_reaches_on_cancel_not_on_fail(runner, qtbot):
+    import threading
+
+    gate = threading.Event()
+
+    def work():
+        gate.wait(5)
+        raise ValueError("too late to matter")
+
+    failed, cancelled = [], []
+    job = runner.start(work, report_progress=False, on_fail=failed.append,
+                       on_cancel=lambda: cancelled.append(True))
+    job.cancel()
+    gate.set()
+    qtbot.waitUntil(lambda: bool(cancelled), timeout=5_000)
+    assert failed == []
+
+
+def test_cancelling_frees_the_runner_for_the_next_job_at_once(runner, qtbot):
+    """A user can solve again straight after Cancel; the new job queues."""
+    gate, work = _gate()
+    first = runner.start(work, report_progress=False)
+    assert runner.busy()
+    runner.cancel()
+    assert not runner.busy()
+
+    second = []
+    runner.start(lambda: "second", report_progress=False, on_done=second.append)
+    assert runner.busy(), "the queued job is the one in flight now"
+    gate.set()
+    qtbot.waitUntil(lambda: bool(second), timeout=5_000)
+    assert second == ["second"] and first.cancelling
+    assert not runner.busy()
+
+
+def test_a_cancelled_job_finishing_late_does_not_mark_its_successor_idle(runner, qtbot):
+    import threading
+
+    gate, work = _gate()
+    runner.start(work, report_progress=False)
+    runner.cancel()
+    hold = threading.Event()
+    runner.start(lambda: hold.wait(5), report_progress=False)
+    gate.set()                      # the cancelled job now finishes first
+    qtbot.wait(200)
+    assert runner.busy(), "the first job's outcome cleared the second's busy flag"
+    hold.set()
+    qtbot.waitUntil(lambda: not runner.busy(), timeout=5_000)
+
+
+# -- progress and failure text --------------------------------------------------
+
+def _count_progress(runner, qtbot, **options):
+    seen = []
+
+    def work(progress=None):
+        for i in range(1_000):
+            progress(i, 1_000)
+        return "done"
+
+    done = []
+    runner.start(work, on_progress=lambda d, t: seen.append(d),
+                 on_done=done.append, **options)
+    qtbot.waitUntil(lambda: bool(done), timeout=5_000)
+    return seen
+
+
+def test_progress_is_throttled_to_whole_percent(runner, qtbot):
+    """1000 steps, about 100 visible states: the rest were invisible signals."""
+    seen = _count_progress(runner, qtbot)
+    assert len(seen) == 100 and seen[0] == 0
+
+
+def test_throttling_can_be_turned_off(runner, qtbot):
+    assert len(_count_progress(runner, qtbot, throttle=False)) == 1_000
+
+
+def test_cancel_is_checked_on_every_step_not_every_percent(runner, qtbot):
+    import threading
+
+    reached = []
+    asked = threading.Event()
+
+    def work(progress=None):
+        for i in range(1_000):
+            if i == 5:
+                asked.wait(5)       # the click lands mid-percent
+            progress(i, 1_000)
+            reached.append(i)
+
+    cancelled = []
+    job = runner.start(work, on_cancel=lambda: cancelled.append(True))
+    qtbot.waitUntil(lambda: len(reached) >= 5, timeout=5_000)
+    job.cancel()
+    asked.set()
+    qtbot.waitUntil(lambda: bool(cancelled), timeout=5_000)
+    assert max(reached) == 4, "the work ran on to the next percent before stopping"
+
+
+def test_an_application_can_word_its_own_failures(qtbot):
+    seen = []
+    made = JobRunner(describe=lambda exc: f"could not: {exc}")
+
+    def boom(progress=None):
+        raise ValueError("no good")
+
+    made.start(boom, on_fail=seen.append)
+    qtbot.waitUntil(lambda: bool(seen), timeout=5_000)
+    made.wait(5_000)
+    assert seen == ["could not: no good"]
+
+
+def test_a_broken_describe_still_reports_the_failure(qtbot):
+    """Otherwise the window would wait for ever on a signal that never comes."""
+    seen = []
+
+    def describe(exc):
+        raise RuntimeError("describe is broken")
+
+    made = JobRunner(describe=describe)
+    made.start(lambda: 1 / 0, report_progress=False, on_fail=seen.append)
+    qtbot.waitUntil(lambda: bool(seen), timeout=5_000)
+    made.wait(5_000)
+    assert seen == ["ZeroDivisionError: division by zero"]
+
+
 # -- the worker thread's stack ------------------------------------------------
 
 def test_the_worker_gets_a_main_thread_sized_stack(runner):

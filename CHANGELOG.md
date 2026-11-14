@@ -8,6 +8,33 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Changed
+
+What gratinglab's solve worker did by hand, `endstation.qt.jobs.JobRunner`
+now does for every application:
+
+- **A cancelled job never reaches `on_done` or `on_fail`.** A job can finish
+  between the Cancel click and its next progress report; that late result,
+  or failure, now goes to `on_cancel`, and its progress stops reaching
+  `on_progress`. Exactly one of the three callbacks is still called. A window
+  no longer needs a token (`endstation.qt.tokens`) to recognise it.
+- **`start()` accepts a new job straight after `cancel()`.** It queues behind
+  the cancelled one, which is still unwinding on the single worker thread,
+  and `busy()` is false from the moment of the cancel. Starting while a job
+  runs that was not cancelled is still refused.
+- **Progress is throttled to whole percent by default** (`throttle=False`
+  turns it off). The cancel check still runs on every report.
+
+### Added
+
+- `JobRunner(describe=...)`: a function that words an unexpected exception
+  for `on_fail`, so an application can say "this solver cannot take this
+  problem" rather than print a class name. The default,
+  `describe_exception`, gives the old `"ValueError: message"` text, and a
+  `describe` that itself raises falls back to it.
+
 ## 0.4.0
 
 ### Added
