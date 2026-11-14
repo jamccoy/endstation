@@ -8,6 +8,17 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Changed
+
+- The reading pane draws a table in the theme's colours: single 1 px rules
+  in the grid colour instead of Qt's grey double border, and the header row
+  shaded in the alternate base colour. The colours are read when a page is
+  set, so a window that re-renders on `theming.subscribe` (as it already
+  must for equations) picks up a theme change. `reading.style_sheet(theme)`
+  is the style sheet, for a pane that sets HTML by other means.
+
 ## 0.6.1
 
 ### Changed
