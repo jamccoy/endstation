@@ -8,6 +8,22 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Fixed
+
+- **`JobRunner` kept its caller alive after the caller was gone.** The
+  runner holds its most recent job, and that job's Qt connections held the
+  `on_done`, `on_fail`, `on_progress` and `on_cancel` callbacks. Qt holds a
+  connected callable where Python's collector cannot see it, so a window
+  that passed its own methods and owned the runner could never be freed,
+  even by `gc.collect()`: a closed gratinglab efficiency window stayed in
+  memory, and pytest-qt then called `close()` on its deleted C++ object.
+  The job's signals now connect only to the runner's own slots, and the
+  callbacks are released as soon as the outcome is delivered. Every
+  earlier version held them the same way, connected straight to the
+  job's signals, for as long as the runner held the job.
+
 ## 0.5.0
 
 ### Changed

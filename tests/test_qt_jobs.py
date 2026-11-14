@@ -219,6 +219,65 @@ def test_a_cancelled_job_finishing_late_does_not_mark_its_successor_idle(runner,
     qtbot.waitUntil(lambda: not runner.busy(), timeout=5_000)
 
 
+# -- letting go of the caller ---------------------------------------------------
+
+def test_a_callback_is_let_go_once_its_job_is_settled(qtbot):
+    """A connection to a callable holds it from inside Qt, where Python's
+    collector cannot see. Kept on the runner's last job, a callback bound to
+    a window kept the window alive after it closed."""
+    import gc
+    import weakref
+
+    class Owner:
+        def __init__(self):
+            self.seen = []
+
+        def done(self, value):
+            self.seen.append(value)
+
+    owner = Owner()
+    ref = weakref.ref(owner)
+    made = JobRunner()
+    made.start(lambda: 1, report_progress=False, on_done=owner.done)
+    seen = owner.seen
+    qtbot.waitUntil(lambda: seen == [1], timeout=5_000)
+    made.wait(5_000)
+    del owner
+    gc.collect()
+    assert ref() is None, "the runner still holds the callback's owner"
+
+
+def test_a_window_that_owns_a_runner_is_freed_when_deleted(qtbot):
+    """The shape gratinglab met: a window, its runner as a child, and the
+    window's own methods as the callbacks."""
+    import gc
+    import weakref
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from PySide6.QtWidgets import QWidget
+
+    class Window(QWidget):
+        def __init__(self):
+            super().__init__()
+            self.runner = JobRunner(self)
+            self.seen = []
+
+        def done(self, value):
+            self.seen.append(value)
+
+    window = Window()
+    ref = weakref.ref(window)
+    window.runner.start(lambda: 1, report_progress=False, on_done=window.done)
+    seen = window.seen
+    qtbot.waitUntil(lambda: seen == [1], timeout=5_000)
+    window.runner.wait(5_000)
+    window.deleteLater()
+    del window
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    gc.collect()
+    assert ref() is None, "the deleted window is still alive in Python"
+
+
 # -- progress and failure text --------------------------------------------------
 
 def _count_progress(runner, qtbot, **options):

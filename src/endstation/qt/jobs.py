@@ -32,10 +32,9 @@ and refusing that until a long solve noticed its flag would read as a hang.
 
 from __future__ import annotations
 
-from functools import partial
 from typing import Any, Callable
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
 
 from ..progress import Cancelled, throttled
 
@@ -238,6 +237,13 @@ class JobRunner(QObject):
         self._describe = describe
         self._job: Job | None = None
         self._busy = False
+        # The caller's callbacks for each job not yet settled, keyed by the
+        # job's signals object, which is what `sender()` gives the slots below.
+        # Popped when the outcome is delivered: a connection to a callable
+        # holds it from inside Qt, where Python's collector cannot see, so a
+        # callback bound to a window kept the window alive for ever once the
+        # runner held the job.
+        self._pending: dict[JobSignals, tuple[Job, dict[str, Any]]] = {}
         if gc_guard:
             # Imported here so that a runner without the guard never registers
             # the guard's atexit hook.
@@ -283,18 +289,17 @@ class JobRunner(QObject):
         job = Job(fn, *args, report_progress=report_progress, throttle=throttle,
                   describe=self._describe, **kwargs)
 
-        # Bookkeeping first: Qt runs slots in connection order, so clearing
-        # `busy` has to happen before the caller's handlers. It used to come
-        # last, and a handler that asked for more work -- a redraw requested
-        # once a computation lands, say -- saw the runner still busy and
-        # deferred forever, so the result was never drawn at all.
-        for signal in (job.signals.finished, job.signals.failed,
-                       job.signals.cancelled):
-            signal.connect(partial(self._done, job))
-        job.signals.progress.connect(partial(self._progress, job, on_progress))
-        job.signals.finished.connect(partial(self._outcome, job, on_done, on_cancel))
-        job.signals.failed.connect(partial(self._outcome, job, on_fail, on_cancel))
-        job.signals.cancelled.connect(partial(self._cancelled, on_cancel))
+        # The runner's own slots are the only connections, and they are its
+        # methods, so Qt drops them with the runner rather than holding them.
+        # The caller's callbacks wait in `_pending` until the outcome.
+        self._pending[job.signals] = (job, {
+            "done": on_done, "fail": on_fail,
+            "progress": on_progress, "cancel": on_cancel,
+        })
+        job.signals.progress.connect(self._on_progress)
+        job.signals.finished.connect(self._on_finished)
+        job.signals.failed.connect(self._on_failed)
+        job.signals.cancelled.connect(self._on_cancelled)
 
         # Held on the runner so neither the job nor its signals object is
         # collected while the pooled thread is still using them. A cancelled
@@ -318,26 +323,42 @@ class JobRunner(QObject):
 
     # -- delivery, on the GUI thread ---------------------------------------
 
-    def _done(self, job: Job, *_: Any) -> None:
-        # Only the newest job decides `busy`: a cancelled one finishing after
-        # its replacement started must not mark the replacement idle.
+    @Slot(int, int)
+    def _on_progress(self, done: int, total: int) -> None:
+        entry = self._pending.get(self.sender())
+        if entry is None:
+            return
+        job, callbacks = entry
+        if callbacks["progress"] is not None and not job.cancelling:
+            callbacks["progress"](done, total)
+
+    @Slot(object)
+    def _on_finished(self, value: Any) -> None:
+        self._settle("done", value)
+
+    @Slot(str)
+    def _on_failed(self, message: str) -> None:
+        self._settle("fail", message)
+
+    @Slot()
+    def _on_cancelled(self) -> None:
+        self._settle("cancel", None)
+
+    def _settle(self, outcome: str, value: Any) -> None:
+        """Deliver a job's one outcome, and let go of its callbacks."""
+        entry = self._pending.pop(self.sender(), None)
+        if entry is None:
+            return
+        job, callbacks = entry
+        # Bookkeeping first, so a handler that asks for more work finds the
+        # runner idle. It used to come last, and a redraw requested once a
+        # computation landed saw the runner still busy and deferred for ever.
+        # Only the newest job decides: a cancelled one finishing after its
+        # replacement started must not mark the replacement idle.
         if job is self._job:
             self._busy = False
-
-    @staticmethod
-    def _progress(job: Job, callback, done: int, total: int) -> None:
-        if callback is not None and not job.cancelling:
-            callback(done, total)
-
-    @staticmethod
-    def _outcome(job: Job, callback, on_cancel, value: Any) -> None:
-        if job.cancelling:
-            if on_cancel is not None:
-                on_cancel()
-        elif callback is not None:
-            callback(value)
-
-    @staticmethod
-    def _cancelled(on_cancel) -> None:
-        if on_cancel is not None:
-            on_cancel()
+        if outcome == "cancel" or job.cancelling:
+            if callbacks["cancel"] is not None:
+                callbacks["cancel"]()
+        elif callbacks[outcome] is not None:
+            callbacks[outcome](value)
