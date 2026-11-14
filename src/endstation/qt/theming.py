@@ -16,6 +16,7 @@ all of them stay checked in step through the manager.
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Callable, Mapping
 
 from PySide6.QtCore import QObject, Qt, Signal
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import QApplication, QMenu
 
 from .. import theme as _theme
 from ..theme import SYSTEM, Theme, rc_params
+from .liveness import is_alive
 from .settings import settings
 
 __all__ = [
@@ -170,6 +172,9 @@ def install(
     app.setStyle("Fusion")
     created = ThemeManager(app, _theme.THEMES if themes is None else themes, light=light, dark=dark)
     app.setProperty(_PROPERTY, created)
+    # Before the first apply, so each early subscriber is styled by it.
+    for callback in _take_early():
+        created.changed.connect(callback)
     created.apply()
     return created
 
@@ -189,11 +194,25 @@ def current(default: Theme = _theme.LIGHT) -> Theme:
     return found.theme if found is not None else default
 
 
+#: Callbacks subscribed before any manager existed, as weak references, until
+#: :func:`install` connects them.
+_early: list[Callable[[], Callable[[Theme], None] | None]] = []
+
+
 def subscribe(callback: Callable[[Theme], None]) -> None:
     """Call ``callback(theme)`` whenever the theme changes.
 
-    A no-op when no manager is installed, so a widget built on its own (in a
-    test, or embedded elsewhere) still works and simply keeps its colours.
+    A widget may subscribe before :func:`install` has run. The callback is
+    then held until the manager exists and connected before its first
+    ``apply``, so it is styled at install and on every change after. It used
+    to be dropped instead, silently: a widget built a moment too early never
+    followed the theme, and nothing said so. Until then the widget keeps the
+    colours it was built with, which is also what a widget embedded in an
+    application with no manager at all does.
+
+    An early bound method is held weakly, so subscribing does not keep a
+    widget alive; one whose object has gone by the time of :func:`install`
+    is skipped, never called.
 
     Pass a bound method of a ``QObject``, never a lambda: Qt drops a
     connection to a method when its object is destroyed, but keeps calling
@@ -202,6 +221,27 @@ def subscribe(callback: Callable[[Theme], None]) -> None:
     found = manager()
     if found is not None:
         found.changed.connect(callback)
+        return
+    try:
+        _early.append(weakref.WeakMethod(callback))
+    except TypeError:
+        # Not a bound method: nothing to hold weakly, so it is held as is.
+        _early.append(lambda: callback)
+
+
+def _take_early() -> list[Callable[[Theme], None]]:
+    """The early callbacks whose owners are still alive, and forget them all."""
+    alive = []
+    for ref in _early:
+        callback = ref()
+        if callback is None:
+            continue
+        owner = getattr(callback, "__self__", None)
+        if isinstance(owner, QObject) and not is_alive(owner):
+            continue
+        alive.append(callback)
+    _early.clear()
+    return alive
 
 
 class ThemeMenu(QMenu):

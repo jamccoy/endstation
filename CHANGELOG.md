@@ -19,6 +19,16 @@ Versions are read from `endstation.__version__`.
   that way on 2026-11-14 and each passed on a rerun. Any other install
   failure still fails at once.
 
+### Fixed
+
+- **`theming.subscribe()` before `install()` was silently dropped**, so a
+  widget built a moment before the theme manager existed never followed the
+  theme, and nothing said so. Such a callback is now held until `install()`
+  and connected before its first apply, so the widget is styled at install
+  and on every change after. It is held weakly, so subscribing keeps no
+  widget alive, and a widget destroyed before `install()` is skipped rather
+  than called.
+
 ## 0.6.0
 
 ### Added

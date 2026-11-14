@@ -18,7 +18,9 @@ def store(tmp_path, monkeypatch):
     app = QApplication.instance()
     previous = app.property(theming._PROPERTY)
     app.setProperty(theming._PROPERTY, None)
+    theming._early.clear()
     yield tmp_path / "s.ini"
+    theming._early.clear()
     app.setProperty(theming._PROPERTY, previous)
     settings.configure("endstation", env=None)
 
@@ -63,6 +65,57 @@ class TestTheming:
         first, second = theming.ThemeMenu(), theming.ThemeMenu()
         first.actions_by_key()["dark"].trigger()
         assert second.actions_by_key()["dark"].isChecked()
+
+    def test_a_widget_subscribed_before_install_follows_the_theme(self, store, qapp, qtbot):
+        """It used to be dropped: a widget built a moment before install()
+        never followed the theme, and nothing said so."""
+        class Pane(QWidget):
+            def __init__(self):
+                super().__init__()
+                self.seen = []
+
+            def restyle(self, chosen):
+                self.seen.append(chosen.key)
+
+        pane = Pane()
+        qtbot.addWidget(pane)
+        theming.subscribe(pane.restyle)
+        settings.settings().setValue("appearance/theme", "dark")
+        managed = theming.install(qapp)
+        assert pane.seen == ["dark"], "install's first apply should style it"
+        managed.set_choice("light")
+        assert pane.seen == ["dark", "light"]
+
+    def test_an_early_subscriber_is_not_kept_alive_by_subscribing(self, store):
+        import gc
+        import weakref
+
+        class Owner:
+            def restyle(self, chosen):
+                pass
+
+        owner = Owner()
+        ref = weakref.ref(owner)
+        theming.subscribe(owner.restyle)
+        del owner
+        gc.collect()
+        assert ref() is None
+
+    def test_a_widget_destroyed_before_install_is_never_called(self, store, qapp):
+        from PySide6.QtCore import QCoreApplication, QEvent
+
+        calls = []
+
+        class Pane(QWidget):
+            def restyle(self, chosen):
+                calls.append(chosen)
+
+        pane = Pane()
+        theming.subscribe(pane.restyle)
+        pane.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        theming.install(qapp)       # must neither call it nor raise
+        assert calls == []
 
     def test_current_without_a_manager_is_the_default(self, store):
         assert theming.current() is theme.LIGHT
