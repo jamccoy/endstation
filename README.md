@@ -184,6 +184,10 @@ install_help_menu(window, about_title="About myapp", about_text=lambda: "myapp 1
 recent.restore_layout(window, "main")   # and save_layout in closeEvent
 ```
 
+A window running slow work puts a `DelayedProgressBar` under it and calls
+`bar.follow(runner)`: the bar appears only for a job still going after
+150 ms, and Cancel hides it at the click.
+
 `recent.start_in("scans")` gives a file dialog the folder last used for that
 kind of file, and `recent.remember("scans", path)` records the user's choice.
 An application with colours of its own subclasses `Theme` and builds its

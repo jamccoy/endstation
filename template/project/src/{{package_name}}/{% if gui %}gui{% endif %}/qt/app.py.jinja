@@ -13,7 +13,7 @@ from endstation.qt import recent, settings, theming
 from endstation.qt.canvas import FigurePane
 from endstation.qt.help_menu import install_help_menu
 from endstation.qt.jobs import JobRunner
-from endstation.qt.tokens import StaleGuard
+from endstation.qt.progress_bar import DelayedProgressBar
 
 from ... import __version__
 
@@ -25,13 +25,18 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("{{ project_name }}")
 
+        # Slow work goes through the runner, which drops a result that
+        # arrives after Cancel. The bar appears only for work slow enough to
+        # need one.
         self._runner = JobRunner(self)
-        self._guard = StaleGuard()
+        self.progress = DelayedProgressBar()
+        self.progress.follow(self._runner)
 
         self.pane = FigurePane(placeholder="Nothing computed yet")
         central = QWidget()
         layout = QVBoxLayout(central)
         layout.addWidget(self.pane)
+        layout.addWidget(self.progress)
         self.setCentralWidget(central)
 
         # Held on the instance: a QMenu reached back through the menu bar is
@@ -50,7 +55,6 @@ class MainWindow(QMainWindow):
         # Abandon anything in flight before the widgets it would draw into are
         # deleted, then give the pool a moment to unwind.
         recent.save_layout(self, "main")
-        self._guard.invalidate()
         self._runner.cancel()
         self._runner.wait(5_000)
         super().closeEvent(event)

@@ -8,6 +8,29 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Added
+
+- `endstation.qt.progress_bar.DelayedProgressBar`: a `QProgressBar` that
+  stays hidden for 150 ms after `begin()` and appears only if the work is
+  still going, so a quick job never flashes a bar. Indeterminate until the
+  first `report(done, total)`, hidden again by `end()`. `follow(runner)`
+  drives it from a `JobRunner`: each job begins it, its progress moves it,
+  and its outcome or a Cancel ends it, at the click rather than when the job
+  unwinds. A report from a cancelled job that arrives after the next job has
+  begun never moves the next job's bar. The delay timer is a child of the
+  bar, so it cannot fire into a deleted one. From gratinglab, where five
+  solver tabs each carried a copy.
+- `JobRunner.cancel_requested`, emitted when Cancel is asked for while a job
+  runs, before the job notices.
+
+### Changed
+
+- The project template's window has a `DelayedProgressBar` following its
+  runner, and no longer keeps a `StaleGuard`: since 0.5.0 the runner drops
+  a cancelled job's result itself.
+
 ## 0.5.1
 
 ### Fixed

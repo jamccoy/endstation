@@ -202,6 +202,14 @@ class JobRunner(QObject):
     bar would appear and never clear.
     """
 
+    cancel_requested = Signal()
+    """Cancel was asked for while a job was in flight.
+
+    Emitted at the request, before the job notices, so a view (a progress
+    bar, a Cancel button) can respond to the click rather than to the job
+    unwinding at its next progress report.
+    """
+
     def __init__(
         self,
         parent: QObject | None = None,
@@ -314,7 +322,11 @@ class JobRunner(QObject):
         return job
 
     def cancel(self) -> None:
-        if self._job is not None:
+        """Ask the job in flight to stop; see :meth:`Job.cancel`."""
+        if self._job is not None and self._busy and not self._job.cancelling:
+            self._job.cancel()
+            self.cancel_requested.emit()
+        elif self._job is not None:
             self._job.cancel()
 
     def wait(self, msec: int = 30_000) -> bool:
