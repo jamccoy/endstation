@@ -8,6 +8,17 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Added
+
+- `endstation-shortcut --upgrade <requirement>` upgrades an installed app in
+  one command: pip-upgrades the requirement in the shortcut's virtualenv,
+  redraws the icon and rewrites the shortcut, then runs the `--check` logic
+  and reports. The redraw runs in a fresh interpreter, so it uses the code
+  pip just installed rather than what this process had already imported. A
+  pip failure leaves the shortcut untouched.
+
 ## 0.6.1
 
 ### Changed

@@ -163,3 +163,103 @@ def test_check_of_a_missing_file_says_so(tmp_path):
 def test_icon_and_icon_module_are_alternatives(tmp_path):
     with pytest.raises(SystemExit):
         main(["--name", "d", "--module", "m", "--icon", "x.ico", "--icon-module", "y"])
+
+
+# -- --upgrade ----------------------------------------------------------------
+
+
+class _Record(list):
+    """A list that can also carry the answers a fake gives."""
+
+
+@pytest.fixture
+def calls(monkeypatch):
+    """Record every subprocess the tool starts, answering each with ``codes``."""
+    import subprocess
+
+    from endstation.tools import make_shortcut
+
+    recorded = _Record()
+    codes: list[int] = []
+
+    def run(command, **_kwargs):
+        recorded.append([str(c) for c in command])
+        return subprocess.CompletedProcess(command, codes.pop(0) if codes else 0)
+
+    monkeypatch.setattr(make_shortcut.subprocess, "run", run)
+    recorded.codes = codes
+    return recorded
+
+
+@pytest.fixture
+def checked(monkeypatch):
+    """Stand in for check_shortcut, which reads a real .lnk; ``problems`` is its answer."""
+    from endstation.tools import make_shortcut
+
+    seen = _Record()
+    seen.problems = []
+
+    def check(lnk):
+        seen.append(Path(lnk))
+        return list(seen.problems)
+
+    monkeypatch.setattr(make_shortcut, "check_shortcut", check)
+    return seen
+
+
+def _upgrade_argv(venv, tmp_path, *extra):
+    return ["--upgrade", "demo[gui]", "--name", "demo", "--module", "demo.gui",
+            "--icon-module", "demo.icon", "--python", str(venv),
+            "--dest", str(tmp_path / "desk"), *extra]
+
+
+@windows_only
+def test_upgrade_runs_pip_then_rewrites_in_a_fresh_interpreter_then_checks(
+        venv, tmp_path, calls, checked, capsys):
+    console = venv.with_name("python.exe")
+    console.write_bytes(b"")
+    assert main(_upgrade_argv(venv, tmp_path)) == 0
+    pip, rewrite = calls
+    assert pip == [str(console), "-m", "pip", "install", "--upgrade", "demo[gui]"]
+    # The upgraded code redraws: a new interpreter, the same request minus --upgrade.
+    assert rewrite[:3] == [str(console), "-m", "endstation.tools.make_shortcut"]
+    assert "--upgrade" not in rewrite
+    assert rewrite[rewrite.index("--dest") + 1] == str(tmp_path / "desk")
+    assert rewrite[rewrite.index("--icon-module") + 1] == "demo.icon"
+    assert checked == [tmp_path / "desk" / "demo.lnk"]
+    assert "looks correct" in capsys.readouterr().out
+
+
+@windows_only
+def test_a_failed_pip_leaves_the_shortcut_alone(venv, tmp_path, calls, checked, capsys):
+    calls.codes.append(3)
+    assert main(_upgrade_argv(venv, tmp_path)) == 3
+    assert len(calls) == 1, "nothing was redrawn after pip failed"
+    assert checked == []
+    assert "left as it was" in capsys.readouterr().out
+
+
+@windows_only
+def test_upgrade_reports_what_the_check_finds(venv, tmp_path, calls, checked, capsys):
+    checked.problems = ["demo.gui is not installed in that virtualenv"]
+    assert main(_upgrade_argv(venv, tmp_path)) == 1
+    assert "demo.gui is not installed" in capsys.readouterr().out
+
+
+@windows_only
+def test_every_upgrade_requirement_reaches_pip(venv, tmp_path, calls, checked):
+    main(_upgrade_argv(venv, tmp_path, "--upgrade", "endstation"))
+    assert calls[0][-2:] == ["demo[gui]", "endstation"]
+
+
+def test_upgrade_needs_the_shortcut_described_before_pip_runs(calls):
+    """A typo in --name must not cost an upgrade first."""
+    with pytest.raises(SystemExit):
+        main(["--upgrade", "demo[gui]", "--module", "demo.gui"])
+    assert calls == []
+
+
+def test_check_and_upgrade_are_alternatives(tmp_path, calls):
+    with pytest.raises(SystemExit):
+        main(["--check", str(tmp_path / "x.lnk"), "--upgrade", "demo"])
+    assert calls == []

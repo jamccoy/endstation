@@ -230,6 +230,17 @@ so no console window opens. After `pip install --upgrade` the shortcut keeps
 working; `endstation-shortcut --check <path to .lnk>` reports one whose
 virtualenv, icon or module has gone.
 
+To upgrade an installed app in one go, add `--upgrade` to the same command:
+
+```powershell
+venv\Scripts\endstation-shortcut --upgrade "myapp[gui]" --name myapp `
+    --module myapp.gui.app --icon-module myapp.gui.icon
+```
+
+That pip-upgrades `myapp[gui]` in the virtualenv, redraws the icon and rewrites
+the shortcut with the newly installed code, then checks the shortcut and
+reports.
+
 ### `endstation.testing`: headless test suites
 
 The plugin is registered through the `pytest11` entry point, so no conftest needs to
