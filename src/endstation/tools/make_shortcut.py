@@ -29,11 +29,25 @@ directory first on ``sys.path``, so a folder holding a directory named like
 the package would shadow the installed one; a virtualenv's root holds only
 ``Lib``, ``Scripts``, ``Include`` and ``pyvenv.cfg``.
 
-Upgrading is pip's job, not this tool's. After ``pip install --upgrade`` the
-shortcut still points at the same ``pythonw.exe`` and keeps working; re-run
-this only to redraw the icon. ``--check`` reports a shortcut whose
-interpreter, icon or module has gone, which is how one breaks when the
-virtualenv is moved or rebuilt.
+After ``pip install --upgrade`` the shortcut still points at the same
+``pythonw.exe`` and keeps working; re-run this only to redraw the icon.
+``--check`` reports a shortcut whose interpreter, icon or module has gone,
+which is how one breaks when the virtualenv is moved or rebuilt.
+
+``--upgrade <requirement>`` does all three in one command: pip-upgrades the
+requirement in the shortcut's virtualenv, redraws the icon and rewrites the
+shortcut, then checks it::
+
+    venv\Scripts\endstation-shortcut --upgrade "gratinglab[gui]" \
+        --name gratinglab --module gratinglab.gui.launcher \
+        --icon-module gratinglab.gui.icon
+
+The redraw and rewrite run in a fresh interpreter rather than in this one,
+which imported the project's dependencies, endstation among them, before pip
+replaced them. The icon is then drawn by the code just installed.
+Upgrading endstation itself this way works: pip moves the running
+``endstation-shortcut.exe`` aside, and its warning that it failed to remove
+a temporary directory is that file, still in use, and harmless.
 
 The ``.lnk`` is written through the ``WScript.Shell`` COM object in Windows
 PowerShell, which ships with Windows, so nothing is installed to write it.
@@ -56,6 +70,7 @@ __all__ = [
     "Shortcut",
     "build_ico",
     "check_shortcut",
+    "pip_upgrade",
     "read_shortcut",
     "special_folder",
     "write_shortcut",
@@ -249,6 +264,67 @@ def check_shortcut(lnk: Path) -> list[str]:
     return problems
 
 
+def console_python(pythonw: Path) -> Path:
+    """The ``python.exe`` beside ``pythonw``: the same virtualenv, with a console.
+
+    pip and the redraw run with it so their output and errors can be read.
+    """
+    console = Path(pythonw).with_name("python.exe")
+    return console if console.is_file() else Path(pythonw)
+
+
+def pip_upgrade(python: Path, requirements: list[str]) -> int:
+    """``pip install --upgrade`` ``requirements`` with ``python``; pip's exit status.
+
+    pip's own output goes straight to this console, since an upgrade can take
+    a while and is worth watching.
+    """
+    command = [str(python), "-m", "pip", "install", "--upgrade", *requirements]
+    print("running: " + subprocess.list2cmdline(command), flush=True)
+    return subprocess.run(command, check=False).returncode
+
+
+def _rewrite_args(args: argparse.Namespace, destination: Path) -> list[str]:
+    """The command line that writes the shortcut ``args`` describes, upgrade aside."""
+    out = ["--name", args.name, "--module", args.module,
+           "--python", str(args.python), "--dest", str(destination)]
+    if args.icon_module is not None:
+        out += ["--icon-module", args.icon_module]
+    if args.icon is not None:
+        out += ["--icon", str(args.icon)]
+    if args.description:
+        out += ["--description", args.description]
+    return out
+
+
+def _report(lnk: Path, problems: list[str]) -> int:
+    if problems:
+        print(f"{lnk} has problems:")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    print(f"{lnk} looks correct")
+    return 0
+
+
+def _upgrade(args: argparse.Namespace) -> int:
+    """Upgrade, then redraw and rewrite in a fresh interpreter, then check."""
+    destination = args.dest or special_folder(args.where)
+    python = console_python(args.python)
+    status = pip_upgrade(python, args.upgrade)
+    if status != 0:
+        print(f"pip failed (exit {status}); the shortcut was left as it was")
+        return status
+    rewrite = [str(python), "-m", "endstation.tools.make_shortcut",
+               *_rewrite_args(args, destination)]
+    status = subprocess.run(rewrite, check=False).returncode
+    if status != 0:
+        print(f"redrawing the shortcut failed (exit {status})")
+        return status
+    return _report(destination / f"{args.name}.lnk",
+                   check_shortcut(destination / f"{args.name}.lnk"))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -268,17 +344,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--description", default="", help="the shortcut's tooltip")
     parser.add_argument("--check", type=Path, default=None,
                         help="verify an existing .lnk instead of writing one")
+    parser.add_argument("--upgrade", action="append", default=[], metavar="REQUIREMENT",
+                        help="pip-upgrade this in the shortcut's virtualenv first, "
+                             "e.g. \"mypkg[gui]\"; then rewrite the shortcut and "
+                             "check it. May be given more than once")
     args = parser.parse_args(argv)
 
     if args.check is not None:
-        problems = check_shortcut(args.check)
-        if problems:
-            print(f"{args.check} has problems:")
-            for problem in problems:
-                print(f"  - {problem}")
-            return 1
-        print(f"{args.check} looks correct")
-        return 0
+        if args.upgrade:
+            parser.error("--check and --upgrade are alternatives")
+        return _report(args.check, check_shortcut(args.check))
 
     missing = [n for n in ("name", "module") if not getattr(args, n)]
     if missing:
@@ -288,6 +363,9 @@ def main(argv: list[str] | None = None) -> int:
     _require_windows()
 
     python = args.python or Path(sys.executable).with_name("pythonw.exe")
+    if args.upgrade:
+        args.python = python
+        return _upgrade(args)
     icon = args.icon
     if args.icon_module is not None:
         # Beside the virtualenv: Scripts\pythonw.exe -> venv -> its folder.
