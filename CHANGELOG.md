@@ -8,6 +8,27 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Fixed
+
+- A `FigurePane`'s navigation toolbar follows a theme switched while the
+  application runs. Before matplotlib 3.11, `NavigationToolbar2QT` colours
+  its icons once, when it is built, so switching under View > Theme left
+  them dark on dark, or washed out on light, until the next launch. The
+  pane now redraws them on every `ThemeManager.changed`. From matplotlib
+  3.11 the icons are drawn from the palette when painted and need nothing.
+
+### Added
+
+- `endstation.qt.canvas.restyle_toolbar(toolbar, theme=None)`, the same
+  redraw for a toolbar a project builds itself. Call it from a
+  `theming.subscribe` callback (a bound method) and pass on the theme the
+  callback receives: when `changed` fires, the new palette has not reached
+  the toolbar yet, so the colours come from the theme. It reads
+  matplotlib's private `_actions` and `toolitems`, and changes nothing
+  rather than raising if they are not as expected.
+
 ## 0.7.0
 
 ### Added

@@ -122,6 +122,141 @@ class TestTheming:
         assert theming.current(theme.DARK) is theme.DARK
 
 
+def _icon_brightness(toolbar, callback="home") -> float:
+    """Mean HSV value of an action icon's opaque pixels, 0 to 255."""
+    import warnings
+
+    with warnings.catch_warnings():
+        # matplotlib 3.11's icon engine reads a Qt attribute PySide6 6.12
+        # deprecates; not this suite's to fix, and it fails under -W error.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        image = toolbar._actions[callback].icon().pixmap(24, 24).toImage()
+    total = weight = 0.0
+    for y in range(image.height()):
+        for x in range(image.width()):
+            colour = image.pixelColor(x, y)
+            total += colour.value() * colour.alphaF()
+            weight += colour.alphaF()
+    assert weight > 0, "the icon has no opaque pixels to measure"
+    return total / weight
+
+
+@pytest.fixture
+def fixed_icons(monkeypatch):
+    """matplotlib before 3.11, which colours its icons once, whatever is installed."""
+    from endstation.qt import canvas
+
+    monkeypatch.setattr(canvas, "_icons_follow_palette", lambda: False)
+
+
+class TestToolbarIcons:
+    """A toolbar's icons stay readable when the theme changes while running.
+
+    Before matplotlib 3.11 the icons are coloured once, when the toolbar is
+    built, and :func:`restyle_toolbar` redraws them; from 3.11 they are drawn
+    from the palette when painted. The `fixed_icons` tests take the first
+    path on any matplotlib.
+    """
+
+    def test_a_pane_toolbar_follows_a_live_theme_switch(self, store, qapp, qtbot):
+        from endstation.qt.canvas import FigurePane
+
+        managed = theming.install(qapp)
+        managed.set_choice("light")
+        pane = FigurePane()
+        qtbot.addWidget(pane)
+        qapp.processEvents()
+        on_light = _icon_brightness(pane.toolbar)
+
+        managed.set_choice("dark")
+        qapp.processEvents()
+        on_dark = _icon_brightness(pane.toolbar)
+        assert on_dark > on_light + 100, (on_light, on_dark)
+
+        managed.set_choice("light")
+        qapp.processEvents()
+        assert _icon_brightness(pane.toolbar) == pytest.approx(on_light, abs=1)
+
+    def test_fixed_icons_are_redrawn_from_the_theme_not_the_palette(
+        self, store, qapp, qtbot, fixed_icons
+    ):
+        from endstation.qt.canvas import FigurePane
+
+        managed = theming.install(qapp)
+        managed.set_choice("light")
+        pane = FigurePane()
+        qtbot.addWidget(pane)
+        on_light = _icon_brightness(pane.toolbar)
+        # No event processing: the palette has not reached the toolbar when
+        # `changed` fires, so the icons must come from the theme it carries.
+        managed.set_choice("dark")
+        assert _icon_brightness(pane.toolbar) > on_light + 100
+
+    def test_a_toolbar_built_before_install_is_restyled_by_it(
+        self, store, qapp, qtbot, fixed_icons
+    ):
+        from endstation.qt.canvas import FigurePane
+
+        settings.settings().setValue("appearance/theme", "dark")
+        qapp.setPalette(theming.palette(theme.LIGHT))
+        pane = FigurePane()
+        qtbot.addWidget(pane)
+        on_light = _icon_brightness(pane.toolbar)
+        theming.install(qapp)
+        assert _icon_brightness(pane.toolbar) > on_light + 100
+
+    def test_the_helper_restyles_a_toolbar_a_project_builds(self, store, qapp, qtbot, fixed_icons):
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+        from matplotlib.figure import Figure
+
+        from endstation.qt.canvas import restyle_toolbar
+
+        qapp.setPalette(theming.palette(theme.LIGHT))
+        holder = QWidget()
+        qtbot.addWidget(holder)
+        toolbar = NavigationToolbar2QT(FigureCanvasQTAgg(Figure()), holder)
+        on_light = _icon_brightness(toolbar)
+        assert restyle_toolbar(toolbar, theme.DARK) == len(toolbar._actions)
+        assert _icon_brightness(toolbar) > on_light + 100
+
+    def test_icons_that_follow_the_palette_are_left_alone(self, qapp, qtbot, monkeypatch):
+        from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+        from matplotlib.figure import Figure
+
+        from endstation.qt import canvas
+
+        monkeypatch.setattr(canvas, "_icons_follow_palette", lambda: True)
+        holder = QWidget()
+        qtbot.addWidget(holder)
+        toolbar = NavigationToolbar2QT(FigureCanvasQTAgg(Figure()), holder)
+        assert canvas.restyle_toolbar(toolbar, theme.DARK) == 0
+
+    def test_the_helper_does_nothing_to_a_toolbar_it_does_not_recognise(self, qtbot, fixed_icons):
+        from PySide6.QtWidgets import QToolBar
+
+        from endstation.qt.canvas import restyle_toolbar
+
+        plain = QToolBar()
+        qtbot.addWidget(plain)
+        assert restyle_toolbar(plain, theme.DARK) == 0
+        plain._actions = {"home": object()}
+        plain.toolitems = [("Home", "tip", "no-such-image", "home"), "malformed"]
+        assert restyle_toolbar(plain, theme.DARK) == 0
+        plain.toolitems = [("Home", "tip", "home", "home")]   # setIcon on a non-action
+        assert restyle_toolbar(plain, theme.DARK) == 0
+
+    def test_a_destroyed_pane_is_left_alone(self, store, qapp, fixed_icons):
+        from PySide6.QtCore import QCoreApplication, QEvent
+
+        from endstation.qt.canvas import FigurePane
+
+        managed = theming.install(qapp)
+        pane = FigurePane()
+        pane.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        managed.set_choice("dark")      # must not reach the deleted toolbar
+
+
 class TestRecent:
     def test_folders_are_per_kind_and_survive_only_while_they_exist(self, store, tmp_path):
         scans = tmp_path / "scans"
