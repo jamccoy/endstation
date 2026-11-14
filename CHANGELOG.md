@@ -8,6 +8,17 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Changed
+
+- The project template's CI retries its install, every 30 s for about five
+  minutes, when pip fails with "No matching distribution found" and for no
+  other reason. Straight after a dependency is released, PyPI's CDN can
+  serve an index page that does not list it yet; four gratinglab runs failed
+  that way on 2026-11-14 and each passed on a rerun. Any other install
+  failure still fails at once.
+
 ## 0.6.0
 
 ### Added
