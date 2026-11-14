@@ -49,7 +49,7 @@ more is installed through an extra:
 | Subpackage | Extra | Needs |
 |---|---|---|
 | `endstation.qt` | `qt` | PySide6, matplotlib |
-| `endstation.docs` | `docs` | matplotlib, for math only |
+| `endstation.docs` | `docs` | matplotlib and numpy, for math only |
 | `endstation.testing` | `testing` | pytest |
 | `endstation.tools` | none | macOS `sips`/`iconutil`, or Windows PowerShell and Pillow, at runtime |
 
@@ -189,6 +189,25 @@ kind of file, and `recent.remember("scans", path)` records the user's choice.
 An application with colours of its own subclasses `Theme` and builds its
 themes with `Theme.extend(endstation.theme.LIGHT, ...)`, which is what
 gratinglab does for its order and diagram colours.
+
+### `endstation.docs` and `endstation.qt.reading`: Help pages
+
+```python
+from endstation.qt.reading import ReadingBrowser, render_into, text_color
+
+browser = ReadingBrowser()
+render_into(browser, page.read(), device_pixel_ratio=window.devicePixelRatioF(),
+            text_color=text_color(window))
+```
+
+`endstation.docs.load_pages` lists a folder of markdown pages in reading order,
+and `render_markdown` turns one into the HTML Qt's text engine reads: headings,
+lists, tables, code, links and `$...$` LaTeX drawn by matplotlib. Equations are
+rasterised at the screen's pixel ratio, sized to the reading font, set on the
+text's baseline and drawn in the palette's text colour, so re-render on a theme
+change. One that matplotlib cannot parse shows as its source, in colour, and is
+listed in `RichPage.unrendered`, which makes a test that every page renders a
+one-liner.
 
 ### `endstation.tools`: launchers
 

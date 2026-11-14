@@ -64,11 +64,12 @@ qt = [
     "matplotlib>=3.8",
 ]
 mpl = ["matplotlib>=3.8"]
-# Rendering documentation needs matplotlib for the equations and nothing else:
-# the markdown subset Qt actually renders is small enough that a full CommonMark
-# implementation would mostly be output this cannot use, and the conversion has
-# to interleave with math extraction anyway.
-docs = ["matplotlib>=3.8"]
+# Rendering documentation needs matplotlib for the equations, and numpy to pad
+# an inline equation onto the text's baseline (matplotlib requires it anyway).
+# No markdown library: the subset Qt renders is small enough that a full
+# CommonMark implementation would mostly be output this cannot use, and the
+# conversion has to interleave with math extraction anyway.
+docs = ["matplotlib>=3.8", "numpy>=1.23"]
 testing = ["pytest>=7"]
 dev = [
     "pytest>=7",

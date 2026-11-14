@@ -6,29 +6,31 @@ its pages as package data, and one published them to a GitHub wiki. This
 subpackage combines all four.
 
 The subpackage is toolkit-free, and nothing here imports Qt.
-:mod:`endstation.docs.markdown` produces HTML plus a dictionary of PNG bytes,
-and the widget layer registers those with ``QTextDocument.addResource``. As a
-result the whole pipeline can be tested down to the bytes without a display.
+:mod:`endstation.docs.markdown` produces HTML plus the PNG bytes of each
+equation, and the widget layer (:mod:`endstation.qt.reading`) registers those
+with ``QTextDocument.addResource``. As a result the whole pipeline can be
+tested down to the bytes without a display.
 
-Math rendering needs matplotlib, which is the ``mpl`` extra. Structure
+Math rendering needs matplotlib, which is the ``docs`` extra. Structure
 conversion alone works without it if ``render_math=False`` is passed.
 """
 
 from __future__ import annotations
 
 from .index import Page, PageIndex, load_pages, title_of
-from .markdown import MATH_URL_PREFIX, RenderedPage, to_html
+from .markdown import MATH_URL_PREFIX, MathImage, RichPage, render_markdown
 from .mathtext import Segment, split_segments, strip_boxed
 
 __all__ = [
     "MATH_URL_PREFIX",
+    "MathImage",
     "Page",
     "PageIndex",
-    "RenderedPage",
+    "RichPage",
     "Segment",
     "load_pages",
+    "render_markdown",
     "split_segments",
     "strip_boxed",
     "title_of",
-    "to_html",
 ]

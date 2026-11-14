@@ -20,6 +20,36 @@ Versions are read from `endstation.__version__`.
   shortcut whose interpreter, icon or module has gone. It needs Windows
   PowerShell, which ships with Windows, and Pillow, which matplotlib
   requires.
+- `endstation.qt.reading`: `ReadingBrowser`, a `QTextBrowser` for long
+  prose (a larger font, extra leading, a centred column of readable width),
+  and `render_into`, which renders a markdown page into one with its
+  equations registered. From gratinglab's theory viewer.
+
+### Changed
+
+- **`endstation.docs` is replaced by gratinglab's renderer, which had moved
+  on since the copy.** Breaking: `to_html` and `RenderedPage` are gone;
+  `render_markdown(source, ...)` returns a `RichPage` whose `images` is a
+  tuple of `MathImage` (key, PNG bytes, logical width and height) and whose
+  `unrendered` is a tuple. `Segment` is now `(kind, content, display)` with
+  kind `"text"` or `"math"`. No released project imported either.
+  What a page gains:
+  - equations rasterised at the device pixel ratio and tagged with their
+    logical size, so they are sharp on a Retina or 150% screen;
+  - `math_dpi` and `inline_metrics` size equations to the reading font and
+    set inline ones on the text's baseline;
+  - equations drawn in a given colour, for dark themes, where the old
+    renderer also hardcoded light grey code and table backgrounds;
+  - a display equation wrapped across source lines renders, where
+    mathtext rejected the newline;
+  - wrapped list items, nested placeholders (a code span inside a link)
+    and a cache, so reopening a page re-renders nothing.
+  Kept from the old renderer, and new to gratinglab: numbered lists, a `$`
+  inside a code span left alone, short table rows padded, and
+  `render_math=False`. New in both: `\|` in a table is a pipe, not a
+  column, and only a list starting at 1 interrupts a paragraph, so a wrapped
+  line beginning "120." stays prose.
+- The `docs` extra declares numpy, which the baseline padding uses.
 
 ## 0.3.0
 
