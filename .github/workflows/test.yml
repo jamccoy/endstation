@@ -225,7 +225,8 @@ jobs:
           import endstation
           from endstation import require_extra, Cancelled, ErrorCollector, find_data
           from endstation.qt.jobs import JobRunner
-          from endstation.docs import to_html
+          from endstation.docs import render_markdown
+          from endstation.qt.reading import ReadingBrowser, render_into
           print('version', endstation.__version__)
           print('exports', len(endstation.__all__))
           "
