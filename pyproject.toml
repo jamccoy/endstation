@@ -7,14 +7,14 @@ name = "endstation"
 # Read from `endstation.__version__` rather than restated here. Two literals
 # drift, and the one that drifts is always the one nobody looks at.
 dynamic = ["version"]
-description = "Shared scaffolding for desktop scientific applications: optional-dependency guards, cancellable workers, Qt/matplotlib panes, and macOS app bundling"
+description = "Shared scaffolding for desktop scientific applications: optional-dependency guards, cancellable workers, Qt/matplotlib panes, macOS app bundles and Windows shortcuts"
 readme = "README.md"
 # 3.10 rather than 3.12: `eblfrac` declares >=3.10 and `gratinglab` >=3.11.
 # A shared package cannot raise the floor of the projects it serves.
 requires-python = ">=3.10"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Jake McCoy" }]
-keywords = ["gui", "pyside6", "matplotlib", "macos", "scientific", "packaging"]
+keywords = ["gui", "pyside6", "matplotlib", "macos", "windows", "scientific", "packaging"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -95,6 +95,7 @@ dev = [
 [project.scripts]
 endstation-icon = "endstation.tools.make_icon:main"
 endstation-app = "endstation.tools.make_app:main"
+endstation-shortcut = "endstation.tools.make_shortcut:main"
 endstation-publish-wiki = "endstation.tools.publish_wiki:main"
 
 [project.urls]

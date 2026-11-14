@@ -8,6 +8,19 @@ interface, but every such change is listed here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com).
 Versions are read from `endstation.__version__`.
 
+## Unreleased
+
+### Added
+
+- `endstation-shortcut` (`endstation.tools.make_shortcut`), the Windows
+  counterpart of `endstation-app` and `endstation-icon`. Run with a
+  virtualenv's Python, it draws the project's icon into a seven-size `.ico`
+  beside the virtualenv and writes a Desktop or Start menu `.lnk` running
+  `pythonw.exe -m <module>`, so no console window opens. `--check` reports a
+  shortcut whose interpreter, icon or module has gone. It needs Windows
+  PowerShell, which ships with Windows, and Pillow, which matplotlib
+  requires.
+
 ## 0.3.0
 
 ### Added

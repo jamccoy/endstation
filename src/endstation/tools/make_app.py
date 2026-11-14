@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Build a macOS ``.app`` that launches a project's GUI.
 
-    endstation-app --name "GratingLab" --script gratinglab-gui \
-                   --bundle-id org.gratinglab.gui --icon resources/GratingLab.icns
+    endstation-app --name gratinglab --script gratinglab-app \
+                   --bundle-id org.gratinglab.gui --icon resources/gratinglab.icns
 
 The bundle is not frozen: there is no PyInstaller and no embedded interpreter.
 It consists of three files: a plist, a shell stub that execs the console

@@ -12,7 +12,8 @@ written in Python. It provides the parts of such an application that surround th
 analysis itself: guards for optional dependencies, progress reporting and
 cancellation for slow work, collection of form errors, location of research data
 kept outside the checkout, background workers for the user interface, embedded
-figures, rendered documentation pages, and macOS application bundles.
+figures, rendered documentation pages, macOS application bundles and Windows
+shortcuts.
 
 The name is taken from synchrotron beamlines, where the endstation is the shared
 apparatus to which each experiment is attached, such as the goniometer, detector and
@@ -50,7 +51,7 @@ more is installed through an extra:
 | `endstation.qt` | `qt` | PySide6, matplotlib |
 | `endstation.docs` | `docs` | matplotlib, for math only |
 | `endstation.testing` | `testing` | pytest |
-| `endstation.tools` | none | macOS `sips`/`iconutil` at runtime |
+| `endstation.tools` | none | macOS `sips`/`iconutil`, or Windows PowerShell and Pillow, at runtime |
 
 The package declares `requires-python = ">=3.10"`, because `eblfrac` declares 3.10 and
 a shared package should not raise the minimum Python version of the projects that use
@@ -188,6 +189,23 @@ kind of file, and `recent.remember("scans", path)` records the user's choice.
 An application with colours of its own subclasses `Theme` and builds its
 themes with `Theme.extend(endstation.theme.LIGHT, ...)`, which is what
 gratinglab does for its order and diagram colours.
+
+### `endstation.tools`: launchers
+
+On macOS, `endstation-icon` draws a project's icon into an `.icns` and
+`endstation-app` writes a `.app` that launches its console script. On Windows,
+one command does both, run with the Python of the virtualenv to launch:
+
+```powershell
+venv\Scripts\endstation-shortcut --name myapp --module myapp.gui.app `
+    --icon-module myapp.gui.icon
+```
+
+That writes `myapp.ico` beside the virtualenv and `myapp.lnk` on the Desktop
+(`--where start-menu` for the Start menu), running `pythonw.exe -m myapp.gui.app`
+so no console window opens. After `pip install --upgrade` the shortcut keeps
+working; `endstation-shortcut --check <path to .lnk>` reports one whose
+virtualenv, icon or module has gone.
 
 ### `endstation.testing`: headless test suites
 
